@@ -2,7 +2,7 @@
 # python==3.12.3
 # flask==3.0.3
 # openai-whisper==20240930
-# 
+# demucs==4.0.1
 
 # TODO: 비동기처리
 
@@ -37,6 +37,8 @@ def separate_audio(file_path):
 
     return output_dir
 
+# .mp3 in
+# save lylics, inst., pitchdata
 @app.route('/separate', methods=['POST'])
 def upload_file():
     # 오디오 파일이 전달되었는지 확인
