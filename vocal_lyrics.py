@@ -1,6 +1,5 @@
 import whisper
 import sys
-import whisper
 import re
 from difflib import SequenceMatcher
 import os

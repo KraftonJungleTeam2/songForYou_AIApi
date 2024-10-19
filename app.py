@@ -9,8 +9,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
-from demucs.separate import main as demucs_main
-import uuid
+from vocal_seperation import separate_audio
 
 app = Flask(__name__)
 
@@ -20,25 +19,9 @@ RESULT_FOLDER = 'results'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
 
-# Demucs를 호출하여 오디오 분리
-def separate_audio(file_path):
-    # 고유 ID로 결과 디렉토리 생성
-    output_dir = os.path.join(RESULT_FOLDER, str(uuid.uuid4()))
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Demucs 호출 (필요한 인자를 전달)
-    demucs_args = [
-        file_path,
-        '-o', output_dir,  # 출력 디렉토리 지정
-        '--two-stems', 'vocals'  # 보컬만 추출 (필요에 따라 변경 가능)
-    ]
-    demucs_main(demucs_args)
-
-    return output_dir
-
-# .mp3 in
-# save lylics, inst., pitchdata
-@app.route('/separate', methods=['POST'])
+# '.mp3', 'id' in
+# save lyrics, inst., pitchdata
+@app.route('/preprocess', methods=['POST'])
 def upload_file():
     # 오디오 파일이 전달되었는지 확인
     if 'file' not in request.files:

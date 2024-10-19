@@ -4,9 +4,33 @@ import wave
 import numpy as np
 from pydub import AudioSegment
 
-# 목소리 아닌 부분 음소거
 
-def remove_noise(audio_path, sensitivity=2):
+def vocal_preprocess(audio_path: str) -> bool:
+    """
+_summary_
+음정/가사 추출 전 보컬음원의 전처리 담당
+Args:
+    audio_path (_str_): 보컬음원이 있는 path 예: 
+
+Returns:
+    bool: 정상 처리시 True, 그 외 False 반환
+    """    
+    try:
+        return remove_noise(audio_path)
+    except Exception as e:
+        print(f"Exception while vocal preprocessing: {e}")
+        return False
+
+def remove_noise(audio_path, sensitivity=2) -> bool:
+    """_summary_
+목소리를 감지해 목소리가 아닌 부분은 음소거
+Args:
+    audio_path (_type_): _description_
+    sensitivity (int, optional): 1, 2, 3으로 감도 입력. 3이 가장 민감하게 처리. Defaults to 2.
+
+Returns:
+    bool: _description_
+    """    
     # 음성 파일 로드
     audio = AudioSegment.from_file(os.path.join(audio_path, 'vocals.wav'))
 
@@ -16,7 +40,7 @@ def remove_noise(audio_path, sensitivity=2):
 
     # WAV 파일로 저장하여 WebRTC VAD 적용
     audio.export(os.path.join(audio_path, "vocals_mono.wav"), format="wav")
-
+    
     # WebRTC VAD 설정
     vad = webrtcvad.Vad()
     vad.set_mode(sensitivity)  # 모드 3: 가장 민감한 설정
@@ -53,3 +77,5 @@ def remove_noise(audio_path, sensitivity=2):
 
     # 결과 저장
     output_audio.export(os.path.join(audio_path, "vocals_preprocessed.wav"), format="wav")
+
+    return True
