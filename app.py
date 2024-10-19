@@ -9,7 +9,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
-from demucs import __main__ as demucs_main
+from demucs.separate import main as demucs_main
 import uuid
 
 app = Flask(__name__)
@@ -30,10 +30,9 @@ def separate_audio(file_path):
     demucs_args = [
         file_path,
         '-o', output_dir,  # 출력 디렉토리 지정
-        '--two-stems', 'vocals',  # 보컬만 추출 (필요에 따라 변경 가능)
-        '--mp3'
+        '--two-stems', 'vocals'  # 보컬만 추출 (필요에 따라 변경 가능)
     ]
-    demucs_main.main(demucs_args)
+    demucs_main(demucs_args)
 
     return output_dir
 
@@ -56,7 +55,7 @@ def upload_file():
         # Demucs를 사용하여 오디오 분리
         output_dir = separate_audio(file_path)
 
-        # 분리된 파일을 zip으로 묶기
+        # 분리된 파일을 zip으로 묶기                                                                                                                                                                                                                                     
         zip_filename = f"{os.path.splitext(filename)[0]}_separated.zip"
         zip_filepath = os.path.join(RESULT_FOLDER, zip_filename)
         shutil.make_archive(zip_filepath.replace('.zip', ''), 'zip', output_dir)
