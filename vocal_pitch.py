@@ -1,81 +1,76 @@
-import os
-import webrtcvad
-import wave
+import librosa
+import crepe
 import numpy as np
-from pydub import AudioSegment
+import pandas as pd
+import os
+from scipy.signal import savgol_filter
+from scipy.ndimage import gaussian_filter1d
+from scipy.signal import butter, filtfilt
+
+def pitch_extract(audio_path):
+    audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    # Crepe로 음정 추출
+    time, frequency, confidence, activation = crepe.predict(audio, sr, viterbi=False, step_size=50)
+
+def refine():
+    # 1/3 옥타브 스무딩 적용
+    frequency = np.where(confidence > 0.3, frequency, np.nan)
+    smoothed_frequency = smooth_pitch(frequency, window_length=10, polyorder=1)
 
 
-def vocal_preprocess(audio_path: str) -> bool:
+    # 신뢰도 필터링 (선택 사항)
+    threshold = 1
+    smoothed_frequency = np.where(new_confidence > threshold, smoothed_frequency, np.nan)
+    # smoothed_frequency = np.where(confidence > threshold, smoothed_frequency, np.nan)
+
+
+    smoothed_frequency = np.where((80 > smoothed_frequency )| (smoothed_frequency > 2000), np.nan, smoothed_frequency)
+
+    # 보간 적용
+    smoothed_frequency = interpolate_nearby(smoothed_frequency, max_gap=20)
+
+def reduce_columns_by_average(arr: np.ndarray, group_size=5) -> np.ndarray:
     """
-_summary_
-음정/가사 추출 전 보컬음원의 전처리 담당
-Args:
-    audio_path (_str_): 보컬음원이 있는 path 예: 
+    이차원 배열에서 각 열을 5개씩 묶어 평균값으로 줄이는 함수.
 
-Returns:
-    bool: 정상 처리시 True, 그 외 False 반환
-    """    
-    try:
-        return remove_noise(audio_path)
-    except Exception as e:
-        print(f"Exception while vocal preprocessing: {e}")
-        return False
+    Parameters:
+        arr (2D numpy array): 입력 이차원 배열
+        group_size (int): 묶을 그룹 크기 (기본값: 5)
 
-def remove_noise(audio_path, sensitivity=2) -> bool:
-    """_summary_
-목소리를 감지해 목소리가 아닌 부분은 음소거
-Args:
-    audio_path (_type_): _description_
-    sensitivity (int, optional): 1, 2, 3으로 감도 입력. 3이 가장 민감하게 처리. Defaults to 2.
+    Returns:
+        (2D numpy array): 열이 1/5로 줄어든 이차원 배열
+    """
+    rows, cols = arr.shape
+    # 새로운 행 크기 계산
+    new_rows = rows // group_size
+    result = np.zeros((new_rows, cols))
 
-Returns:
-    bool: _description_
-    """    
-    # 음성 파일 로드
-    audio = AudioSegment.from_file(os.path.join(audio_path, 'vocals.wav'))
-
-    # Mono로 변환 (VAD는 Mono만 지원)
-    audio = audio.set_channels(1)
-    audio = audio.set_frame_rate(48000)  # VAD가 지원하는 샘플 레이트로 설정 (8000, 16000, 32000, 48000 중 하나)
-
-    # WAV 파일로 저장하여 WebRTC VAD 적용
-    audio.export(os.path.join(audio_path, "vocals_mono.wav"), format="wav")
+    for j in range(cols):
+        for i in range(new_rows):
+            # 5개씩 묶어서 평균값 계산
+            result[i, j] = np.mean(arr[i*group_size:(i+1)*group_size, j])
     
-    # WebRTC VAD 설정
-    vad = webrtcvad.Vad()
-    vad.set_mode(sensitivity)  # 모드 3: 가장 민감한 설정
+    return result
 
-    # WAV 파일 읽기
-    with wave.open(os.path.join(audio_path, "vocals_mono.wav"), 'rb') as wf:
-        sample_rate = wf.getframerate()
-        frames = wf.readframes(wf.getnframes())
-        frame_length = int(sample_rate * 0.025)  # 25ms 단위
+# 로우패스 필터 적용
+def lowpass_filter(data, cutoff_freq, fs, order=4):
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff_freq / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return filtfilt(b, a, data)
 
-    # 음성 데이터를 NumPy 배열로 변환
-    samples = np.frombuffer(frames, dtype=np.int16)
+def smooth_pitch(pitch, window_length=6, polyorder=3):
+    # Savitzky-Golay 필터를 사용하여 스무딩 적용
+    # return savgol_filter(pitch, window_length, polyorder)
+    return gaussian_filter1d(pitch, sigma=2)
 
-    # 음성 구간 탐지
-    segments = []
-    for i in range(0, len(samples), frame_length):
-        frame = samples[i:i + frame_length]
-        if len(frame) < frame_length:
-            break
+# 보간 함수 정의
+def interpolate_nearby(data, max_gap=1):
+    # Pandas Series로 변환하여 보간 적용
+    series = pd.Series(data)
+    result = series.interpolate(method='polynomial', limit=max_gap, limit_direction='both', order=2)
 
-        # VAD를 이용해 음성인지 여부 확인
-        is_speech = vad.is_speech(frame.tobytes(), sample_rate)
-        segments.append(is_speech)
+    # 가까운 값이 아닌 경우에는 NaN으로 유지하도록 조건 추가
+    result = np.where(result.isna(), np.nan, result)
 
-    # 탐지된 음성 구간에 따라 원본 오디오에서 음소거 처리
-    output_audio = AudioSegment.silent(duration=len(audio))
-
-    for i, is_speech in enumerate(segments):
-        if is_speech:
-            # 말하는 구간을 유지하고, 아닌 구간은 음소거 처리
-            start = i * 25  # 25ms 단위
-            end = (i + 1) * 25
-            output_audio = output_audio.overlay(audio[start:end], position=start)
-
-    # 결과 저장
-    output_audio.export(os.path.join(audio_path, "vocals_preprocessed.wav"), format="wav")
-
-    return True
+    return result

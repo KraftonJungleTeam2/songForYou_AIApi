@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
 from vocal_seperation import separate_audio
+from vocal_preprocess import vocal_preprocess
 
 app = Flask(__name__)
 
@@ -37,7 +38,9 @@ def upload_file():
 
         # Demucs를 사용하여 오디오 분리
         output_dir = separate_audio(file_path)
-
+        if not vocal_preprocess(output_dir):
+            return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
+        
         # 분리된 파일을 zip으로 묶기                                                                                                                                                                                                                                     
         zip_filename = f"{os.path.splitext(filename)[0]}_separated.zip"
         zip_filepath = os.path.join(RESULT_FOLDER, zip_filename)
