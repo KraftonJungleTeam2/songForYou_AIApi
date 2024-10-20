@@ -45,7 +45,6 @@ def upload_file():
         pitch_extract(output_dir)
         transcribe_audio(output_dir)
         
-        
         # 분리된 파일을 zip으로 묶기                                                                                                                                                                                                                                     
         zip_filename = f"{os.path.splitext(filename)[0]}_separated.zip"
         zip_filepath = os.path.join(RESULT_FOLDER, zip_filename)

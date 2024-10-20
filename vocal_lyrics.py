@@ -54,20 +54,20 @@ def vocal_align(audio_path, transcript_path):
         print(f"{word_info['start']:.2f} - {word_info['end']:.2f}: {word_info['word']}")
 
 def transcribe_audio(audio_path):
+    # TODO: 앞 30초 무시하는 문제 있음. 트림으로 해결
     # Whisper 모델 로드 ("base" 모델 사용)
     model = whisper.load_model("medium")
 
     # 오디오 파일 전사
-    result = model.transcribe(audio_path, language='ko', word_timestamps=True)
+    result = model.transcribe(audio_path, language='ko', word_timestamps=True, temperature=0, no_speech_threshold=0.3)
+
+    # text = [seg['text'] for seg in result['segments']]
+    # time = [(seg['start'], seg['end']) for seg in result['segments']]
+
+    with open(os.path.join(audio_path, 'lyrics.txt'), 'w') as f:
+        for seg in result['segments']:
+            start, end, text = seg['start'], seg['end'], seg['text']
+            f.write(f"{start} {end} {text}\n")
 
     # 전사된 텍스트 반환
-    return result["word"]
-
-# if __name__ == "__main__":
-#     if len(sys.argv) != 3:
-#         print("사용법: python align.py <오디오 파일 경로> <텍스트 파일 경로>")
-#     else:
-#         audio_path = sys.argv[1]
-#         transcript_path = sys.argv[2]
-#         vocal_align(audio_path, transcript_path)
-
+    return True
