@@ -11,6 +11,8 @@ import os
 import shutil
 from vocal_seperation import separate_audio
 from vocal_preprocess import vocal_preprocess
+from vocal_pitch import pitch_extract
+from vocal_lyrics import transcribe_audio, vocal_align
 
 app = Flask(__name__)
 
@@ -31,7 +33,7 @@ def upload_file():
     file = request.files['file']
     
     # 파일 저장
-    if file:
+    if file and file.filename:
         filename = file.filename
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
@@ -40,6 +42,9 @@ def upload_file():
         output_dir = separate_audio(file_path)
         if not vocal_preprocess(output_dir):
             return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
+        pitch_extract(output_dir)
+        transcribe_audio(output_dir)
+        
         
         # 분리된 파일을 zip으로 묶기                                                                                                                                                                                                                                     
         zip_filename = f"{os.path.splitext(filename)[0]}_separated.zip"
