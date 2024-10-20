@@ -13,6 +13,7 @@ from vocal_seperation import separate_audio
 from vocal_preprocess import vocal_preprocess
 from vocal_pitch import pitch_extract
 from vocal_lyrics import transcribe_audio, vocal_align
+import uuid
 
 app = Flask(__name__)
 
@@ -31,15 +32,22 @@ def upload_file():
         return jsonify({'error': 'No file uploaded'}), 400
 
     file = request.files['file']
+    fileid = request.form.get('id')
+
+    if not fileid:
+        return jsonify({'error': 'id must be provided'}), 400
     
     # 파일 저장
-    if file and file.filename:
+    if file and file.filename and fileid:
         filename = file.filename
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
 
+        # 고유 ID로 결과 디렉토리 생성
+        output_dir = os.path.join(RESULT_FOLDER, str(fileid))
+
         # Demucs를 사용하여 오디오 분리
-        output_dir = separate_audio(file_path)
+        separate_audio(file_path, output_dir)
         if not vocal_preprocess(output_dir):
             return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
         pitch_extract(output_dir)

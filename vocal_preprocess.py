@@ -15,6 +15,7 @@ def vocal_preprocess(audio_path: str) -> bool:
         bool: 정상 처리시 True, 그 외 False 반환
     """    
     try:
+        print(audio_path)
         return remove_noise(audio_path)
     except Exception as e:
         print(f"Exception while vocal preprocessing: {e}")
