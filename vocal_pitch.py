@@ -11,23 +11,24 @@ def pitch_extract(audio_path):
     audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
     # Crepe로 음정 추출
     time, frequency, confidence, activation = crepe.predict(audio, sr, viterbi=False, step_size=50)
+    frequency = refine(frequency, confidence, 0.5)
+    
+    np.save("time.npy", time)
+    np.save("frequency.npy", frequency)
+    np.save("confidence.npy", confidence)
+    np.save("activation.npy", activation)
 
-def refine():
-    # 1/3 옥타브 스무딩 적용
-    frequency = np.where(confidence > 0.3, frequency, np.nan)
-    smoothed_frequency = smooth_pitch(frequency, window_length=10, polyorder=1)
+    return time, frequency, confidence, activation
 
+def refine(frequency, confidence, threshold):
+    frequency = np.where(confidence > threshold, frequency, np.nan)
+    # smoothed_frequency = smooth_pitch(frequency, window_length=10, polyorder=1)
 
-    # 신뢰도 필터링 (선택 사항)
-    threshold = 1
-    smoothed_frequency = np.where(new_confidence > threshold, smoothed_frequency, np.nan)
-    # smoothed_frequency = np.where(confidence > threshold, smoothed_frequency, np.nan)
-
-
-    smoothed_frequency = np.where((80 > smoothed_frequency )| (smoothed_frequency > 2000), np.nan, smoothed_frequency)
+    frequency = np.where((frequency >= 40)| (frequency <= 2000), frequency, np.nan)
 
     # 보간 적용
-    smoothed_frequency = interpolate_nearby(smoothed_frequency, max_gap=20)
+    # smoothed_frequency = interpolate_nearby(frequency, max_gap=20)
+    return frequency
 
 def reduce_columns_by_average(arr: np.ndarray, group_size=5) -> np.ndarray:
     """
