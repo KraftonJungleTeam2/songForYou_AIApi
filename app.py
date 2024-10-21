@@ -5,6 +5,7 @@
 # demucs==4.0.1
 
 # TODO: 비동기처리
+# TODO: aws에 올리기
 
 from flask import Flask, request, jsonify, send_from_directory
 import os
@@ -55,6 +56,9 @@ def upload_file():
     user_id = request.form.get('user_id')
     metadata = request.form.get('metadata')
     is_public = request.form.get('is_public')
+
+    if not key or not user_id:
+        return jsonify({'error': 'key and user_id must be provided'}), 400
     
     # 파일 저장
     if file and file.filename:
@@ -63,7 +67,7 @@ def upload_file():
         file.save(file_path)
 
         # 고유 ID로 결과 디렉토리 생성
-        output_dir = os.path.join(RESULT_FOLDER, str(uuid.uuid4()))
+        output_dir = os.path.join(RESULT_FOLDER, key)
 
         # Demucs를 사용하여 오디오 분리
         if not separate_audio(file_path, output_dir):
@@ -72,7 +76,7 @@ def upload_file():
             return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
         if not (pitch_extracted := pitch_extract(output_dir)):
             return jsonify({'error': "error occured whlie extracting pitch"}), 400
-        if not transcribe_audio(output_dir):
+        if not (lyrics := transcribe_audio(output_dir)):
             return jsonify({'error': "error occured whlie trancribing audio"}), 400
 
         cur = conn.cursor()
@@ -94,8 +98,8 @@ def upload_file():
 
         # SQL 삽입 쿼리
         insert_query = """
-            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id;
         """
 
@@ -108,7 +112,8 @@ def upload_file():
                                    is_public,
                                    pitch,
                                    confidence,
-                                   psycopg2.Binary(activation)))
+                                   psycopg2.Binary(activation),
+                                   lyrics))
 
         # 변경 사항 커밋
         if not (row_id := cur.fetchone()):
@@ -116,6 +121,8 @@ def upload_file():
         row_id = row_id[0]
         conn.commit()
         cur.close()
+
+        shutil.rmtree(output_dir)
         
         return jsonify({'id': row_id, 'msg': 'process success', 'key': key})
     
