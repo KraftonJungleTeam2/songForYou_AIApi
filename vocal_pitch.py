@@ -7,7 +7,16 @@ from scipy.signal import savgol_filter
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import butter, filtfilt
 
-def pitch_extract(audio_path):
+def pitch_extract(audio_path) -> None | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    crepe를 이용해 피치 추출
+
+    Args:
+    audio_path (str): 폴더
+
+    Returns:
+    None | tuple: 성공 시 np.ndarray로 (시간, 주파수, 주파수별 confidence, 전체 confidence 정보 반환)
+    """    
     try:
         audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
         # Crepe로 음정 추출

@@ -16,6 +16,8 @@ from vocal_lyrics import transcribe_audio, vocal_align
 import psycopg2
 from dotenv import load_dotenv
 from pydub import AudioSegment
+import numpy as np
+import uuid
 
 app = Flask(__name__)
 
@@ -49,28 +51,26 @@ def upload_file():
         return jsonify({'error': 'No file uploaded'}), 400
 
     file = request.files['file']
-    fileid = request.form.get('id')
+    key = request.form.get('key')
+    user_id = request.form.get('user_id')
+    metadata = request.form.get('metadata')
     is_public = request.form.get('is_public')
-
-    if not fileid:
-        return jsonify({'error': 'id must be provided'}), 400
-
     
     # 파일 저장
-    if file and file.filename and fileid:
+    if file and file.filename:
         filename = file.filename
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
 
         # 고유 ID로 결과 디렉토리 생성
-        output_dir = os.path.join(RESULT_FOLDER, str(fileid))
+        output_dir = os.path.join(RESULT_FOLDER, str(uuid.uuid4()))
 
         # Demucs를 사용하여 오디오 분리
         if not separate_audio(file_path, output_dir):
             return jsonify({'error': 'error occured while separating audio'}), 400
         if not vocal_preprocess(output_dir):
             return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
-        if not pitch_extract(output_dir):
+        if not (pitch_extracted := pitch_extract(output_dir)):
             return jsonify({'error': "error occured whlie extracting pitch"}), 400
         if not transcribe_audio(output_dir):
             return jsonify({'error': "error occured whlie trancribing audio"}), 400
@@ -87,22 +87,37 @@ def upload_file():
         # vocal 파일 읽기
         with open(wav_to_mp3(os.path.join(output_dir, "vocals.wav")), 'rb') as f:
             vocals = f.read()
+        pitch = pitch_extracted[1].tolist()
+        confidence = pitch_extracted[2].tolist()
+        with open(os.path.join(output_dir, "activation.npy"), 'rb') as f:
+            activation = f.read()
 
         # SQL 삽입 쿼리
         insert_query = """
-            INSERT INTO user_songs (user_id, song, data)
-            VALUES (%s, %s, %s)
+            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
         """
 
         # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-        cur.execute(insert_query, (1, psycopg2.Binary(song_data), psycopg2.Binary(data_blob)))
+        cur.execute(insert_query, (user_id, 
+                                   psycopg2.Binary(original), 
+                                   psycopg2.Binary(no_vocals),
+                                   psycopg2.Binary(vocals),
+                                   metadata,
+                                   is_public,
+                                   pitch,
+                                   confidence,
+                                   psycopg2.Binary(activation)))
 
         # 변경 사항 커밋
+        if not (row_id := cur.fetchone()):
+            return jsonify({'error': 'Error while processing'})
+        row_id = row_id[0]
         conn.commit()
-
         cur.close()
         
-        return jsonify({'id': fileid, 'msg': 'process success', 'key': key})
+        return jsonify({'id': row_id, 'msg': 'process success', 'key': key})
     
     return jsonify({'error': 'File could not be processed'}), 400
 
