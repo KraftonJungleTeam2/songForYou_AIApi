@@ -1,4 +1,8 @@
 __pycache__/*
 test.py
 *.wav
+*.mp3
 .*
+.*/*
+results/*
+uploads/*
