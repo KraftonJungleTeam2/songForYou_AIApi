@@ -2,7 +2,7 @@ import requests
 import uuid
 
 # 서버 URL
-url = 'http://localhost:5000/preprocess'
+url = 'http://localhost:5000/seperate'
 
 # 파일 경로 설정 (예: 전송할 오디오 파일 경로)
 file_path = 'love wins all cliped.wav'

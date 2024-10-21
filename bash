@@ -8,3 +8,4 @@ librosa==0.10.2
 pandas==2.2.3
 tensorflow==2.17.0
 sudo apt-get install ffmpeg
+sudo apt install libpq-dev
