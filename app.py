@@ -25,7 +25,7 @@ os.makedirs(RESULT_FOLDER, exist_ok=True)
 
 # '.mp3', 'id' in
 # save lyrics, inst., pitchdata
-@app.route('/preprocess', methods=['POST'])
+@app.route('/seperate', methods=['POST'])
 def upload_file():
     # 오디오 파일이 전달되었는지 확인
     if 'file' not in request.files:
