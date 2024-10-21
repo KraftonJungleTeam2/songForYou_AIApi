@@ -8,17 +8,20 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import butter, filtfilt
 
 def pitch_extract(audio_path):
-    audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
-    # Crepe로 음정 추출
-    time, frequency, confidence, activation = crepe.predict(audio, sr, viterbi=False, step_size=50)
-    frequency = refine(frequency, confidence, 0.5)
-    
-    np.save("time.npy", time)
-    np.save("frequency.npy", frequency)
-    np.save("confidence.npy", confidence)
-    np.save("activation.npy", activation)
+    try:
+        audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
+        # Crepe로 음정 추출
+        time, frequency, confidence, activation = crepe.predict(audio, sr, viterbi=False, step_size=50)
+        frequency = refine(frequency, confidence, 0.5)
+        
+        np.save(os.path.join(audio_path, "time.npy"), time)
+        np.save(os.path.join(audio_path, "frequency.npy"), frequency)
+        np.save(os.path.join(audio_path, "confidence.npy"), confidence)
+        np.save(os.path.join(audio_path, "activation.npy"), activation)
 
-    return time, frequency, confidence, activation
+        return time, frequency, confidence, activation
+    except Exception as e:
+        print(f"error whlie extracting pitch: {e}")
 
 def refine(frequency, confidence, threshold):
     frequency = np.where(confidence > threshold, frequency, np.nan)

@@ -50,7 +50,8 @@ def upload_file():
         separate_audio(file_path, output_dir)
         if not vocal_preprocess(output_dir):
             return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
-        pitch_extract(output_dir)
+        if not pitch_extract(output_dir):
+            return jsonify({'error': "error whlie extracting pitch: {e}"}), 400
         transcribe_audio(output_dir)
         
         # 분리된 파일을 zip으로 묶기                                                                                                                                                                                                                                     

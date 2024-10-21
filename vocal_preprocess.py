@@ -15,7 +15,6 @@ def vocal_preprocess(audio_path: str) -> bool:
         bool: 정상 처리시 True, 그 외 False 반환
     """    
     try:
-        print(audio_path)
         return remove_noise(audio_path)
     except Exception as e:
         print(f"Exception while vocal preprocessing: {e}")
@@ -49,7 +48,7 @@ def remove_noise(audio_path, sensitivity=2) -> bool:
     with wave.open(os.path.join(audio_path, "vocals_mono.wav"), 'rb') as wf:
         sample_rate = wf.getframerate()
         frames = wf.readframes(wf.getnframes())
-        frame_length = int(sample_rate * 0.025)  # 25ms 단위
+        frame_length = int(sample_rate * 0.03)  # 30ms 단위
 
     # 음성 데이터를 NumPy 배열로 변환
     samples = np.frombuffer(frames, dtype=np.int16)
@@ -71,8 +70,8 @@ def remove_noise(audio_path, sensitivity=2) -> bool:
     for i, is_speech in enumerate(segments):
         if is_speech:
             # 말하는 구간을 유지하고, 아닌 구간은 음소거 처리
-            start = i * 25  # 25ms 단위
-            end = (i + 1) * 25
+            start = i * 30  # 30ms 단위
+            end = (i + 1) * 30
             output_audio = output_audio.overlay(audio[start:end], position=start)
 
     # 결과 저장
