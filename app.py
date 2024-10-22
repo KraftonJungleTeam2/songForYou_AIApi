@@ -18,7 +18,7 @@ import psycopg2
 from dotenv import load_dotenv
 from pydub import AudioSegment
 import numpy as np
-import uuid
+import json
 
 app = Flask(__name__)
 
@@ -45,7 +45,7 @@ def wav_to_mp3(wav_path):
 
 # '.mp3', 'id' in
 # save lyrics, inst., pitchdata
-@app.route('/seperate', methods=['POST'])
+@app.route('/separate', methods=['POST'])
 def upload_file():
     # 오디오 파일이 전달되었는지 확인
     if 'file' not in request.files:
@@ -56,6 +56,7 @@ def upload_file():
     user_id = request.form.get('user_id')
     metadata = request.form.get('metadata')
     is_public = request.form.get('is_public')
+    genre = request.form.get('genre')
 
     if not key or not user_id:
         return jsonify({'error': 'key and user_id must be provided'}), 400
@@ -98,8 +99,8 @@ def upload_file():
 
         # SQL 삽입 쿼리
         insert_query = """
-            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics, genre, upload_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             RETURNING id;
         """
 
@@ -108,12 +109,13 @@ def upload_file():
                                    psycopg2.Binary(original), 
                                    psycopg2.Binary(no_vocals),
                                    psycopg2.Binary(vocals),
-                                   metadata,
+                                   json.dumps(metadata),
                                    is_public,
                                    pitch,
                                    confidence,
                                    psycopg2.Binary(activation),
-                                   lyrics))
+                                   json.dumps(lyrics),
+                                   genre))
 
         # 변경 사항 커밋
         if not (row_id := cur.fetchone()):
