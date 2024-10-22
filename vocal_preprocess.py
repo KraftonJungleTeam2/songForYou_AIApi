@@ -78,3 +78,6 @@ def remove_noise(audio_path, sensitivity=2) -> bool:
     output_audio.export(os.path.join(audio_path, "vocals_preprocessed.wav"), format="wav")
 
     return True
+
+if __name__ == '__main__':
+    remove_noise("results/love wins all")

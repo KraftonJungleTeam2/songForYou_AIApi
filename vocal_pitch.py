@@ -115,7 +115,6 @@ if __name__ == '__main__':
     # confidence = np.load("results/signal/confidence.npy")
     # activation = np.load("results/signal/activation.npy")
 
-
     plt.figure(figsize=(12, 6))
     plt.plot(frequency)
     plt.yscale('log')
