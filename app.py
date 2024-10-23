@@ -10,7 +10,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
-from vocal_seperation import separate_audio
+from vocal_separation import separate_audio
 from vocal_preprocess import vocal_preprocess
 from vocal_pitch import pitch_extract
 from vocal_lyrics import transcribe_audio, vocal_align
@@ -18,7 +18,7 @@ import psycopg2
 from dotenv import load_dotenv
 from pydub import AudioSegment
 import numpy as np
-import uuid
+import json
 
 app = Flask(__name__)
 
@@ -45,18 +45,20 @@ def wav_to_mp3(wav_path):
 
 # '.mp3', 'id' in
 # save lyrics, inst., pitchdata
-@app.route('/seperate', methods=['POST'])
+@app.route('/separate', methods=['POST'])
 def upload_file():
     # 오디오 파일이 전달되었는지 확인
     if 'file' not in request.files:
         return jsonify({'error': 'No file uploaded'}), 400
 
     file = request.files['file']
+    image = request.files['image']
     key = request.form.get('key')
     user_id = request.form.get('user_id')
-    metadata = request.form.get('metadata')
+    metadata = json.loads(request.form['metadata'])
     is_public = request.form.get('is_public')
-
+    genre = request.form.get('genre')
+    print(metadata)
     if not key or not user_id:
         return jsonify({'error': 'key and user_id must be provided'}), 400
     
@@ -74,10 +76,10 @@ def upload_file():
             return jsonify({'error': 'error occured while separating audio'}), 400
         if not vocal_preprocess(output_dir):
             return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
-        if not (pitch_extracted := pitch_extract(output_dir)):
-            return jsonify({'error': "error occured whlie extracting pitch"}), 400
         if not (lyrics := transcribe_audio(output_dir)):
             return jsonify({'error': "error occured whlie trancribing audio"}), 400
+        if not (pitch_extracted := pitch_extract(output_dir, lyrics)):
+            return jsonify({'error': "error occured whlie extracting pitch"}), 400
 
         cur = conn.cursor()
 
@@ -98,37 +100,46 @@ def upload_file():
 
         # SQL 삽입 쿼리
         insert_query = """
-            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics, genre, image, upload_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             RETURNING id;
         """
 
-        # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-        cur.execute(insert_query, (user_id, 
-                                   psycopg2.Binary(original), 
-                                   psycopg2.Binary(no_vocals),
-                                   psycopg2.Binary(vocals),
-                                   metadata,
-                                   is_public,
-                                   pitch,
-                                   confidence,
-                                   psycopg2.Binary(activation),
-                                   lyrics))
+        try:
+            # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
+            cur.execute(insert_query, (user_id, 
+                                    psycopg2.Binary(original), 
+                                    psycopg2.Binary(no_vocals),
+                                    psycopg2.Binary(vocals),
+                                    json.dumps(metadata),
+                                    is_public,
+                                    pitch,
+                                    confidence,
+                                    psycopg2.Binary(activation),
+                                    json.dumps(lyrics),
+                                    genre,
+                                    psycopg2.Binary(image)))
 
-        # 변경 사항 커밋
-        if not (row_id := cur.fetchone()):
-            return jsonify({'error': 'Error while processing'})
-        row_id = row_id[0]
-        conn.commit()
-        cur.close()
+            # 변경 사항 커밋
+            if not (row_id := cur.fetchone()):
+                return jsonify({'error': 'Error while processing'})
+            row_id = row_id[0]
+        except Exception as e:
+            print(e)
+            conn.rollback()
+            cur.close()
+            return jsonify({'error': 'sql execution error'})
+        else:
+            conn.commit()
+            cur.close()
 
-        shutil.rmtree(output_dir)
-        
-        return jsonify({'id': row_id, 'msg': 'process success', 'key': key})
+            shutil.rmtree(output_dir)
+            
+            return jsonify({'id': row_id, 'msg': 'process success', 'key': key})
     
     return jsonify({'error': 'File could not be processed'}), 400
 
 if __name__ == '__main__':
     conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=db_password)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=4000)
     conn.close()
