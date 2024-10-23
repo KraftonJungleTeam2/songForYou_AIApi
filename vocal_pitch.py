@@ -5,7 +5,7 @@ import pandas as pd
 import os
 from scipy.ndimage import gaussian_filter
 
-def pitch_extract(audio_path, step_size=50) -> None | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def pitch_extract(audio_path, lyrics: dict, step_size=50) -> None | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     crepe를 이용해 피치 추출
 
@@ -14,11 +14,12 @@ def pitch_extract(audio_path, step_size=50) -> None | tuple[np.ndarray, np.ndarr
 
     Returns:
     None | tuple: 성공 시 np.ndarray로 (시간, 주파수, 주파수별 confidence, 전체 confidence 정보 반환)
-    """    
+    """
     try:
         audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
         # Crepe로 음정 추출
         time, frequency, confidence, activation = crepe.predict(audio, sr, viterbi=False, step_size=step_size)
+        lyrics_masking(activation, lyrics, step_size)
         frequency = refine(frequency, activation)
         
         np.save(os.path.join(audio_path, "time.npy"), time)
@@ -29,6 +30,16 @@ def pitch_extract(audio_path, step_size=50) -> None | tuple[np.ndarray, np.ndarr
         return time, frequency, confidence, activation
     except Exception as e:
         print(f"error whlie extracting pitch: {e}")
+
+def lyrics_masking(data: np.ndarray, lyrics: dict, step_size: int) -> np.ndarray:
+    if lyrics:
+        last = 0
+        for s, e in zip(lyrics['start'], lyrics['end']):
+            e = int(e*1000//step_size)
+            s = int(s*1000//step_size)
+            data[:, last:s] = 0
+            last = e
+        data[:, last:] = 0
 
 def refine(frequency, activation, threshold=0.25):
     frequency = np.where((frequency >= 40)| (frequency <= 2000), frequency, np.nan)
@@ -107,15 +118,17 @@ if __name__ == '__main__':
     import numpy as np
     matplotlib.use('TkAgg')
 
-    result = pitch_extract("results/signal/")
-    if result:
-        time, frequency, confidence, activation = result
+    # lyrics = {"start": [5.45, 24.77, 49.050000000000004, 76.41, 86.83, 97.93], "end": [23.45, 47.13, 76.41, 84.73, 97.92999999999999, 113.53], "text": [" yesterday all my trouble seems so far away now it looks as though they're here to stay oh i believe in yesterday suddenly", " i'm not half the man i used to be there's a shadow hanging over me oh yesterday came suddenly why she had to go i don't know she wouldn't say", " yesterday i said something wrong now i long for yesterday yesterday love was such an easy game to play i need a place to hide away oh i believe in yesterday", " why she had to go i don't know she wouldn't say", " i said something wrong now i long for yesterday yesterday", " yesterday love was such an easy game to play i need a place to hide away oh i believe in yesterday"]}
+    # result = pitch_extract("results/af5bfed8-ead1-4e48-906f-88132f36e114", lyrics, 50)
+    # if result:
+    #     time, frequency, confidence, activation = result
     # time = np.load("results/signal/time.npy")
-    # frequency = np.load("results/signal/frequency.npy")
+    # frequency = np.load("results/af5bfed8-ead1-4e48-906f-88132f36e114/frequency.npy")
     # confidence = np.load("results/signal/confidence.npy")
-    # activation = np.load("results/signal/activation.npy")
-
-    plt.figure(figsize=(12, 6))
-    plt.plot(frequency)
-    plt.yscale('log')
+    activation = np.load("results/signal/activation.npy")
+    # print(frequency)
+    # plt.figure(figsize=(12, 6))
+    # plt.plot(frequency)
+    # plt.yscale('log')
+    plt.pcolor(activation.T)
     plt.show()
