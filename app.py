@@ -58,18 +58,22 @@ def upload_file():
     metadata = json.loads(request.form['metadata'])
     is_public = request.form.get('is_public')
     genre = request.form.get('genre')
-    print(metadata)
+
     if not key or not user_id:
         return jsonify({'error': 'key and user_id must be provided'}), 400
-    
+
     # 파일 저장
     if file and file.filename:
-        filename = file.filename
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
-
         # 고유 ID로 결과 디렉토리 생성
         output_dir = os.path.join(RESULT_FOLDER, key)
+        filename = file.filename
+        file_path = os.path.join(output_dir, filename)
+        file.save(file_path)
+        
+        if image and image.filename:
+            imgname = image.filename
+            img_path = os.path.join(output_dir, imgname)
+            image.save(img_path)
 
         # Demucs를 사용하여 오디오 분리
         if not separate_audio(file_path, output_dir):
@@ -97,6 +101,8 @@ def upload_file():
         confidence = pitch_extracted[2].tolist()
         with open(os.path.join(output_dir, "activation.npy"), 'rb') as f:
             activation = f.read()
+        with open(img_path, 'rb') as f:
+            image_file = f.read()
 
         # SQL 삽입 쿼리
         insert_query = """
@@ -118,7 +124,7 @@ def upload_file():
                                     psycopg2.Binary(activation),
                                     json.dumps(lyrics),
                                     genre,
-                                    psycopg2.Binary(image)))
+                                    psycopg2.Binary(image_file)))
 
             # 변경 사항 커밋
             if not (row_id := cur.fetchone()):
