@@ -3,6 +3,8 @@ import sys
 import re
 from difflib import SequenceMatcher
 import os
+from pydub import AudioSegment
+from pydub.silence import detect_nonsilent
 
 def align_words(transcribed_words, reference_words):
     # 단어들을 소문자로 변환하여 비교
@@ -53,15 +55,47 @@ def vocal_align(audio_path, transcript_path):
     for word_info in aligned:
         print(f"{word_info['start']:.2f} - {word_info['end']:.2f}: {word_info['word']}")
 
+def trim_start_silence(audio_path) -> float:
+    """오디오 파일의 앞 묵음 부분을 제거하고 덮어씌움
+
+    Args:
+        audio_path (str): vocals_preprocessed.wav가 있는 폴더
+
+    Returns:
+        float: 잘라낸 시간을 초단위로 반환함
+    """    
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
+
+    nonsilent_ranges = detect_nonsilent(audio, min_silence_len=500, silence_thresh=-40)
+
+    if nonsilent_ranges:
+        # 첫 번째 묵음이 아닌 구간의 시작점부터 파일 자르기
+        start_trim = nonsilent_ranges[0][0] # milliseconds
+        
+        # 자른 오디오 파일 저장
+        trimmed_audio = audio[start_trim:]
+        trimmed_audio.export(os.path.join(audio_path, "vocals_preprocessed_trimed.wav"), format="wav")
+    else:
+        start_trim = 0
+
+    return start_trim / 1000
+
 def transcribe_audio(audio_path) -> dict[str, list[float] | list[str]]:
-    # TODO: 앞 30초 무시하는 문제 있음. 트림으로 해결
-    # Whisper 모델 로드 ("base" 모델 사용)
-    print("load whisper small")
-    model = whisper.load_model("small")
+    # 앞 30초 무시하는 문제 있음. 트림으로 해결
+    start_trim = trim_start_silence(audio_path)
+    
+    # Whisper 모델 로드 ("medium" 모델 사용)
+    print("load whisper medium")
+    model = whisper.load_model("medium")
 
     # 오디오 파일 전사
     print("transcribe")
-    result = model.transcribe(os.path.join(audio_path, "vocals_preprocessed.wav"), language='ko', word_timestamps=True, temperature=0, no_speech_threshold=0.3)
+    file_path = os.path.join(audio_path, "vocals_preprocessed_trimed.wav") if start_trim > 0 else os.path.join(audio_path, "vocals_preprocessed.wav")
+    result = model.transcribe(file_path, language='ko', 
+                              word_timestamps=True, 
+                              temperature=0, 
+                              no_speech_threshold=0.3
+                              )
 
     # text = [seg['text'] for seg in result['segments']]
     # time = [(seg['start'], seg['end']) for seg in result['segments']]
@@ -74,9 +108,13 @@ def transcribe_audio(audio_path) -> dict[str, list[float] | list[str]]:
 
     start, end, text = [], [], []
     for seg in result['segments']:
-        start.append(seg['start'])
-        end.append(seg['end'])
+        start.append(seg['start']+start_trim)
+        end.append(seg['end']+start_trim)
         text.append(seg['text'])
 
     # 전사된 텍스트 반환
     return {'start': start, 'end': end, 'text': text}
+
+
+if __name__ == '__main__':
+    print(transcribe_audio('results/love wins all'))
