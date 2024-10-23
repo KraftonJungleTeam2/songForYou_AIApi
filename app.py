@@ -10,7 +10,7 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
 import shutil
-from vocal_seperation import separate_audio
+from vocal_separation import separate_audio
 from vocal_preprocess import vocal_preprocess
 from vocal_pitch import pitch_extract
 from vocal_lyrics import transcribe_audio, vocal_align
@@ -104,23 +104,28 @@ def upload_file():
             RETURNING id;
         """
 
-        # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-        cur.execute(insert_query, (user_id, 
-                                   psycopg2.Binary(original), 
-                                   psycopg2.Binary(no_vocals),
-                                   psycopg2.Binary(vocals),
-                                   json.dumps(metadata),
-                                   is_public,
-                                   pitch,
-                                   confidence,
-                                   psycopg2.Binary(activation),
-                                   json.dumps(lyrics),
-                                   genre))
+        try:
+            # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
+            cur.execute(insert_query, (user_id, 
+                                    psycopg2.Binary(original), 
+                                    psycopg2.Binary(no_vocals),
+                                    psycopg2.Binary(vocals),
+                                    json.dumps(metadata),
+                                    is_public,
+                                    pitch,
+                                    confidence,
+                                    psycopg2.Binary(activation),
+                                    json.dumps(lyrics),
+                                    genre))
 
-        # 변경 사항 커밋
-        if not (row_id := cur.fetchone()):
-            return jsonify({'error': 'Error while processing'})
-        row_id = row_id[0]
+            # 변경 사항 커밋
+            if not (row_id := cur.fetchone()):
+                return jsonify({'error': 'Error while processing'})
+            row_id = row_id[0]
+        except Exception as e:
+            print(e)
+            cur.close()
+            return jsonify({'error': 'sql execution error'})
         conn.commit()
         cur.close()
 
