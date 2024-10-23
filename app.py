@@ -54,7 +54,7 @@ def upload_file():
     file = request.files['file']
     image = request.files['image']
     key = request.form.get('key')
-    user_id = request.form.get('user_id')
+    user_id = request.form.get('userId')
     metadata = json.loads(request.form['metadata'])
     is_public = request.form.get('is_public')
     genre = request.form.get('genre')
