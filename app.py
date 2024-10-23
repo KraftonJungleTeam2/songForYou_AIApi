@@ -56,7 +56,7 @@ def upload_file():
     key = request.form.get('key')
     user_id = request.form.get('userId')
     metadata = json.loads(request.form['metadata'])
-    is_public = request.form.get('is_public')
+    is_public = request.form.get('isPublic')
     genre = request.form.get('genre')
 
     if not key or not user_id:
@@ -66,6 +66,8 @@ def upload_file():
     if file and file.filename:
         # 고유 ID로 결과 디렉토리 생성
         output_dir = os.path.join(RESULT_FOLDER, key)
+        os.makedirs(output_dir, exist_ok=True)
+        
         filename = file.filename
         file_path = os.path.join(output_dir, filename)
         file.save(file_path)
