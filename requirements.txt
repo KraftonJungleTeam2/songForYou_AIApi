@@ -7,5 +7,10 @@ crepe==0.0.16
 librosa==0.10.2 
 pandas==2.2.3 
 tensorflow==2.17.0
+celery==5.4.0
+redis==5.2.0
+boto3==1.35.48
 sudo apt-get install ffmpeg
 sudo apt install libpq-dev
+sudo apt install redis-server
+celery -A tasks.celery worker --loglevel=info

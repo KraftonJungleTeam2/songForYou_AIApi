@@ -80,13 +80,13 @@ def trim_start_silence(audio_path) -> float:
 
     return start_trim / 1000
 
-def transcribe_audio(audio_path) -> dict[str, list[float] | list[str]]:
+def transcribe_audio(audio_path, model_name="small") -> dict[str, list[float] | list[str]]:
     # 앞 30초 무시하는 문제 있음. 트림으로 해결
     start_trim = trim_start_silence(audio_path)
     
     # Whisper 모델 로드 ("medium" 모델 사용)
     print("load whisper medium")
-    model = whisper.load_model("small")
+    model = whisper.load_model(model_name)
 
     # 오디오 파일 전사
     print("transcribe")
