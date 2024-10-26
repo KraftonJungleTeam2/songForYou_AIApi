@@ -34,8 +34,8 @@ conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=d
 # Celery 인스턴스 생성
 celery = Celery(
     'tasks',
-    broker=f'redis://{redis_password}@{redis_host}:{redis_port}/1',
-    backend=f'redis://{redis_password}@{redis_host}:{redis_port}/1'
+    broker=f'redis://:{redis_password}@{redis_host}:{redis_port}/1',
+    backend=f'redis://:{redis_password}@{redis_host}:{redis_port}/1'
 )
 
 # S3 클라이언트 생성
@@ -89,9 +89,10 @@ def process(self, songId, file_name):
 
     # 처리할 파일 다운로드
     try:
-        file_path = os.path.join(output_dir, file_name)
+        file_path = os.path.join(output_dir, os.path.basename(file_name))
         if not os.path.isfile(file_path):
             s3.download_file(bucket_name, file_name, file_path)
+            file_name = os.path.basename(file_name) # 혹시 몰라서
     except:
         return {"status": "error", "msg": "cannot download file", "traceback": traceback.format_exc()}
 
