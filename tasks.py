@@ -152,8 +152,8 @@ def process(self, songId, file_name):
             conn.commit()
             cur.close()
             try:
-                requests.post(f"https://{web_host}/api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
-                request_result = "done"
+                response = requests.post(f"https://{web_host}/api/songs/completion-notify", json={"songId": songId, "requestId": requestId})
+                request_result = "done (" + str(response.status_code) + ")"
             except Exception as e:
                 request_result = "failed"
                 print(e)
