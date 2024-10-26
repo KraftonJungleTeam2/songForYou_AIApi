@@ -1,7 +1,7 @@
 import os
 import traceback
 import boto3
-from celery import Celery
+from celery import Celery, Task
 from vocal_separation import separate_audio
 from vocal_preprocess import vocal_preprocess
 from vocal_pitch import pitch_extract
@@ -78,9 +78,10 @@ def musicprocess(output_dir, file_path):
 
     return lyrics, frequency, confidence, pitch_paths[2]
 
-@celery.task(bind=True)
-def process(self, songId, requestId, file_name):
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5})
+def process(self, songId, file_name):
     # 작업 ID로 디렉토리 생성
+    requestId = self.request.id
     output_dir = os.path.join(RESULT_FOLDER, requestId)
     os.makedirs(output_dir, exist_ok=True)
 
