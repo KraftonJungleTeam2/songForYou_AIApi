@@ -19,8 +19,6 @@ from dotenv import load_dotenv
 from pydub import AudioSegment
 import numpy as np
 import json
-import requests
-from threading import Thread
 
 app = Flask(__name__)
 
@@ -45,96 +43,6 @@ def wav_to_mp3(wav_path):
     
     return mp3_path
 
-def task(key, user_id, output_dir, file_path, img_path, metadata, is_public, genre, request_id):
-    global response_data
-    if not key or not user_id:
-        return jsonify({'error': 'key and user_id must be provided'}), 400
-    
-    # 파일 저장
-    
-
-    # Demucs를 사용하여 오디오 분리
-    if not separate_audio(file_path, output_dir):
-        return jsonify({'error': 'error occured while separating audio'}), 400
-    if not vocal_preprocess(output_dir):
-        return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
-    if not (lyrics := transcribe_audio(output_dir)):
-        return jsonify({'error': "error occured whlie trancribing audio"}), 400
-    
-    print(lyrics)
-    if not (pitch_extracted := pitch_extract(output_dir, lyrics)):
-        return jsonify({'error': "error occured whlie extracting pitch"}), 400
-
-    cur = conn.cursor()
-
-
-    # 원본 파일 읽기
-    with open(file_path, 'rb') as f:
-        original = f.read()
-    # inst. 파일 읽기
-    with open(wav_to_mp3(os.path.join(output_dir, "no_vocals.wav")), 'rb') as f:
-        no_vocals = f.read()
-    # vocal 파일 읽기
-    with open(wav_to_mp3(os.path.join(output_dir, "vocals.wav")), 'rb') as f:
-        vocals = f.read()
-    pitch = pitch_extracted[1].tolist()
-    confidence = pitch_extracted[2].tolist()
-    with open(os.path.join(output_dir, "activation.npy"), 'rb') as f:
-        activation = f.read()
-    with open(img_path, 'rb') as f:
-        image_file = f.read()
-
-    # SQL 삽입 쿼리
-    insert_query = """
-        INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics, genre, image, upload_date)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-        RETURNING id;
-    """
-
-    try:
-        # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-        cur.execute(insert_query, (user_id, 
-                                psycopg2.Binary(original), 
-                                psycopg2.Binary(no_vocals),
-                                psycopg2.Binary(vocals),
-                                json.dumps(metadata),
-                                is_public,
-                                pitch,
-                                confidence,
-                                psycopg2.Binary(activation),
-                                json.dumps(lyrics),
-                                genre,
-                                psycopg2.Binary(image_file)))
-
-        # 변경 사항 커밋
-        if not (row_id := cur.fetchone()):
-            return jsonify({'error': 'Error while processing'})
-        row_id = row_id[0]
-    except Exception as e:
-        print(e)
-        conn.rollback()
-        cur.close()
-        return jsonify({'error': 'sql execution error'})
-    else:
-        conn.commit()
-        cur.close()
-
-        shutil.rmtree(output_dir)
-        
-        notify_data = {
-                        'id': row_id,
-                        'requestId': request_id,
-                        'msg': 'process done',
-                        'key': key
-                    }
-        notify_response = requests.post("http://localhost:5000/api/songs/completion-notify", json=notify_data)
-
-        if notify_response.status_code != 200:
-            print(f"Failed to notify completion: {notify_response.text}")
-        
-           
-        return 
-
 # '.mp3', 'id' in
 # save lyrics, inst., pitchdata
 @app.route('/separate', methods=['POST'])
@@ -150,7 +58,11 @@ def upload_file():
     metadata = json.loads(request.form['metadata'])
     is_public = request.form.get('isPublic')
     genre = request.form.get('genre')
-    request_id = request.form.get('requestId')
+
+    if not key or not user_id:
+        return jsonify({'error': 'key and user_id must be provided'}), 400
+
+    # 파일 저장
     if file and file.filename:
         # 고유 ID로 결과 디렉토리 생성
         output_dir = os.path.join(RESULT_FOLDER, key)
@@ -165,12 +77,75 @@ def upload_file():
             img_path = os.path.join(output_dir, imgname)
             image.save(img_path)
 
-    thread = Thread(target=task, args=(key, user_id, output_dir, file_path, img_path, metadata, is_public, genre, request_id))
-    thread.daemon = True
-    thread.start()
+        # Demucs를 사용하여 오디오 분리
+        if not separate_audio(file_path, output_dir):
+            return jsonify({'error': 'error occured while separating audio'}), 400
+        if not vocal_preprocess(output_dir):
+            return jsonify({'error': 'error occured while preprocessing vocals.wav'}), 400
+        if not (lyrics := transcribe_audio(output_dir)):
+            return jsonify({'error': "error occured whlie trancribing audio"}), 400
+        if not (pitch_extracted := pitch_extract(output_dir, lyrics)):
+            return jsonify({'error': "error occured whlie extracting pitch"}), 400
 
-    return jsonify({'msg': 'process success', 'key': key})
+        cur = conn.cursor()
+
+
+        # 원본 파일 읽기
+        with open(file_path, 'rb') as f:
+            original = f.read()
+        # inst. 파일 읽기
+        with open(wav_to_mp3(os.path.join(output_dir, "no_vocals.wav")), 'rb') as f:
+            no_vocals = f.read()
+        # vocal 파일 읽기
+        with open(wav_to_mp3(os.path.join(output_dir, "vocals.wav")), 'rb') as f:
+            vocals = f.read()
+        pitch = pitch_extracted[1].tolist()
+        confidence = pitch_extracted[2].tolist()
+        with open(os.path.join(output_dir, "activation.npy"), 'rb') as f:
+            activation = f.read()
+        with open(img_path, 'rb') as f:
+            image_file = f.read()
+
+        # SQL 삽입 쿼리
+        insert_query = """
+            INSERT INTO songs (user_id, original_song, mr_data, vocal_data, metadata, is_public, pitch, pitch_confidence, pitch_activation, lyrics, genre, image, upload_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            RETURNING id;
+        """
+
+        try:
+            # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
+            cur.execute(insert_query, (user_id, 
+                                    psycopg2.Binary(original), 
+                                    psycopg2.Binary(no_vocals),
+                                    psycopg2.Binary(vocals),
+                                    json.dumps(metadata),
+                                    is_public,
+                                    pitch,
+                                    confidence,
+                                    psycopg2.Binary(activation),
+                                    json.dumps(lyrics),
+                                    genre,
+                                    psycopg2.Binary(image_file)))
+
+            # 변경 사항 커밋
+            if not (row_id := cur.fetchone()):
+                return jsonify({'error': 'Error while processing'})
+            row_id = row_id[0]
+        except Exception as e:
+            print(e)
+            conn.rollback()
+            cur.close()
+            return jsonify({'error': 'sql execution error'})
+        else:
+            conn.commit()
+            cur.close()
+
+            shutil.rmtree(output_dir)
+            
+            return jsonify({'id': row_id, 'msg': 'process success', 'key': key})
     
+    return jsonify({'error': 'File could not be processed'}), 400
 
 if __name__ == '__main__':
     conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=db_password)
