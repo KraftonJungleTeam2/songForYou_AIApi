@@ -13,6 +13,7 @@ import numpy as np
 from pydub import AudioSegment
 import time
 import shutil
+import requests
 
 load_dotenv()
 
@@ -23,6 +24,7 @@ db_password = os.getenv("DB_PASSWORD")
 redis_host = os.getenv("REDIS_HOST")
 redis_port = os.getenv("REDIS_PORT")
 bucket_name = os.getenv("AWS_BUCKET_NAME")
+web_host = "http://localhost:5000/"
 
 # DB 연결
 conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=db_password)
@@ -77,9 +79,9 @@ def musicprocess(output_dir, file_path):
     return lyrics, frequency, confidence, pitch_paths[2]
 
 @celery.task(bind=True)
-def process(self, request_id, file_name):
+def process(self, songId, requestId, file_name):
     # 작업 ID로 디렉토리 생성
-    output_dir = os.path.join(RESULT_FOLDER, request_id)
+    output_dir = os.path.join(RESULT_FOLDER, requestId)
     os.makedirs(output_dir, exist_ok=True)
 
     # 처리할 파일 다운로드
@@ -105,11 +107,11 @@ def process(self, request_id, file_name):
     #     original = f.read()
     # inst. 파일 
     no_vocals_path = wav_to_mp3(os.path.join(output_dir, "no_vocals.wav"))
-    no_vocals_key = os.path.join(request_id, os.path.basename(no_vocals_path))
+    no_vocals_key = os.path.join(requestId, os.path.basename(no_vocals_path))
     s3.upload_file(no_vocals_path, bucket_name, no_vocals_key)
     # vocal 파일
     vocals_path = wav_to_mp3(os.path.join(output_dir, "vocals.wav"))
-    vocals_key = os.path.join(request_id, os.path.basename(vocals_path))
+    vocals_key = os.path.join(requestId, os.path.basename(vocals_path))
     s3.upload_file(vocals_path, bucket_name, vocals_key)
     # # 이미지 파일
     # if img_path is not None:
@@ -119,7 +121,7 @@ def process(self, request_id, file_name):
     # 음정 정보 파일
     pitch = frequency.tolist()
     confidence = confidence.tolist()
-    activation_key = os.path.join(request_id, os.path.basename(activation_path))
+    activation_key = os.path.join(requestId, os.path.basename(activation_path))
     s3.upload_file(activation_path, bucket_name, activation_key)
 
     # SQL
@@ -134,7 +136,7 @@ def process(self, request_id, file_name):
         try:
             cur = conn.cursor()
             # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-            cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), request_id))
+            cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), requestId))
             conn.commit()
             cur.close()
         except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
@@ -144,5 +146,10 @@ def process(self, request_id, file_name):
             else:
                 raise e
         else:
+            try:
+                requests.post(web_host+"api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
+                request_result = "done"
+            except:
+                request_result = "failed"
             shutil.rmtree(output_dir)
-            return "success"
+            return "process success with notify " + request_result
