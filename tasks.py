@@ -140,18 +140,19 @@ def process(self, songId, file_name):
         try:
             cur = conn.cursor()
             # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-            cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), requestId))
-            conn.commit()
-            cur.close()
+            cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), songId))
         except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
             if i < 4:
                 time.sleep(10)
+                conn.rollback()
                 continue
             else:
                 raise e
         else:
+            conn.commit()
+            cur.close()
             try:
-                requests.post(f"http://{web_host}:{web_port}/api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
+                requests.post(f"https://{web_host}/api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
                 request_result = "done"
             except:
                 request_result = "failed"

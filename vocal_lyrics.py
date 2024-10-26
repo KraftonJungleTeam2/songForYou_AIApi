@@ -7,8 +7,6 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 import json
 
-model = whisper.load_model("medium")
-print("model loaded: ", model)
 
 def align_words(transcribed_words, reference_words):
     # 단어들을 소문자로 변환하여 비교
@@ -91,6 +89,9 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     nonsilent = detect_nonsilent(audio, silence_thresh=-50, seek_step=100)
     nonsilent_flat = [i/1000 for r in nonsilent for i in r] # 1차원으로, ms에서 s로 변경
 
+    model = whisper.load_model("medium")
+    print("model loaded: ", model)
+    
     # 오디오 파일 전사
     file_path = os.path.join(audio_path, "vocals_preprocessed.wav")
     result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
@@ -102,7 +103,7 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     #     end.append(seg['end'])
     #     text.append(seg['text'])
     #     words.append(seg['words'])
-    with open('lyrics.json', 'w') as f:
+    with open(os.path.join(audio_path, 'lyrics.json'), 'w') as f:
         json.dump(result, f)
 
     # 전사된 텍스트 반환
