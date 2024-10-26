@@ -149,7 +149,7 @@ def process(self, songId, file_name):
                 raise e
         else:
             try:
-                requests.post(web_host+"api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
+                requests.post(f"http://{web_host}:{web_port}/api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
                 request_result = "done"
             except:
                 request_result = "failed"
