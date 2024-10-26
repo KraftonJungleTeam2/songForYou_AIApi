@@ -19,7 +19,7 @@ def pitch_extract(audio_path, lyrics: dict, step_size=50) -> None | tuple[np.nda
         audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
         # Crepe로 음정 추출
         time, frequency, confidence, activation = crepe.predict(audio, sr, viterbi=False, step_size=step_size)
-        lyrics_masking(activation, lyrics, step_size)
+        # lyrics_masking(activation, lyrics, step_size)
         frequency = refine(frequency, activation)
         
         np.save(os.path.join(audio_path, "time.npy"), time)
@@ -32,7 +32,7 @@ def pitch_extract(audio_path, lyrics: dict, step_size=50) -> None | tuple[np.nda
         print(f"error whlie extracting pitch: {e}")
 
 def lyrics_masking(data: np.ndarray, lyrics: dict, step_size: int) -> np.ndarray:
-    if lyrics:
+    if lyrics.get('end'):
         last = 0
         for s, e in zip(lyrics['start'], lyrics['end']):
             e = int(e*1000//step_size)
@@ -119,13 +119,13 @@ if __name__ == '__main__':
     matplotlib.use('TkAgg')
 
     # lyrics = {"start": [5.45, 24.77, 49.050000000000004, 76.41, 86.83, 97.93], "end": [23.45, 47.13, 76.41, 84.73, 97.92999999999999, 113.53], "text": [" yesterday all my trouble seems so far away now it looks as though they're here to stay oh i believe in yesterday suddenly", " i'm not half the man i used to be there's a shadow hanging over me oh yesterday came suddenly why she had to go i don't know she wouldn't say", " yesterday i said something wrong now i long for yesterday yesterday love was such an easy game to play i need a place to hide away oh i believe in yesterday", " why she had to go i don't know she wouldn't say", " i said something wrong now i long for yesterday yesterday", " yesterday love was such an easy game to play i need a place to hide away oh i believe in yesterday"]}
-    # result = pitch_extract("results/af5bfed8-ead1-4e48-906f-88132f36e114", lyrics, 50)
-    # if result:
-    #     time, frequency, confidence, activation = result
+    result = pitch_extract("results/2024-10-23T17:50:03.812Z/", {})
+    if result:
+        time, frequency, confidence, activation = result
     # time = np.load("results/signal/time.npy")
     # frequency = np.load("results/af5bfed8-ead1-4e48-906f-88132f36e114/frequency.npy")
     # confidence = np.load("results/signal/confidence.npy")
-    activation = np.load("results/signal/activation.npy")
+    # activation = np.load("results/signal/activation.npy")
     # print(frequency)
     # plt.figure(figsize=(12, 6))
     # plt.plot(frequency)

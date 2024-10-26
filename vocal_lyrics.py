@@ -87,7 +87,7 @@ def transcribe_audio(audio_path) -> dict[str, list[float] | list[str]]:
     # Whisper 모델 로드 ("medium" 모델 사용)
     print("load whisper medium")
     model = whisper.load_model("small")
-
+    
     # 오디오 파일 전사
     print("transcribe")
     file_path = os.path.join(audio_path, "vocals_preprocessed_trimed.wav") if start_trim > 0 else os.path.join(audio_path, "vocals_preprocessed.wav")
