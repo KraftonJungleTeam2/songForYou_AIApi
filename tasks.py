@@ -34,8 +34,8 @@ conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=d
 # Celery 인스턴스 생성
 celery = Celery(
     'tasks',
-    broker=f'redis://{redis_password}@{redis_host}:{redis_port}/1',
-    backend=f'redis://{redis_password}@{redis_host}:{redis_port}/1'
+    broker=f'redis://:{redis_password}@{redis_host}:{redis_port}/1',
+    backend=f'redis://:{redis_password}@{redis_host}:{redis_port}/1'
 )
 
 # S3 클라이언트 생성
