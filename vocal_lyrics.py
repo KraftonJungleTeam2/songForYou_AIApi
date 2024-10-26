@@ -103,7 +103,7 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     #     end.append(seg['end'])
     #     text.append(seg['text'])
     #     words.append(seg['words'])
-    with open('lyrics.json', 'w') as f:
+    with open(os.path.join(audio_path, 'lyrics.json'), 'w') as f:
         json.dump(result, f)
 
     # 전사된 텍스트 반환
