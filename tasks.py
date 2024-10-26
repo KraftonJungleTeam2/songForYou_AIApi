@@ -154,7 +154,8 @@ def process(self, songId, file_name):
             try:
                 requests.post(f"https://{web_host}/api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
                 request_result = "done"
-            except:
+            except Exception as e:
                 request_result = "failed"
+                print(e)
             shutil.rmtree(output_dir)
             return "process success with notify " + request_result
