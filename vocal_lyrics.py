@@ -7,7 +7,7 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 import json
 
-model = whisper.load_model("small")
+model = whisper.load_model("medium")
 print("model loaded: ", model)
 
 def align_words(transcribed_words, reference_words):

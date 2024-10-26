@@ -1,4 +1,4 @@
-flask==3.0.3
+# flask==3.0.3
 numpy <2.0.0,>=1.26.0 
 openai-whisper==20240930 
 pydub==0.25.1 
@@ -10,7 +10,6 @@ tensorflow==2.18.0
 celery==5.4.0
 redis==5.2.0
 boto3==1.35.48
-sudo apt install ffmpeg
-sudo apt install libpq-dev
-sudo apt install redis-server
-celery -A tasks.celery worker --loglevel=info
+demucs==4.0.1
+psycopg2==2.9.10
+python-dotenv

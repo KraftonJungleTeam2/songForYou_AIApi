@@ -1,0 +1,3 @@
+sudo apt install ffmpeg
+sudo apt install libpq-dev
+sudo apt install redis-server
