@@ -24,7 +24,8 @@ db_password = os.getenv("DB_PASSWORD")
 redis_host = os.getenv("REDIS_HOST")
 redis_port = os.getenv("REDIS_PORT")
 bucket_name = os.getenv("AWS_BUCKET_NAME")
-web_host = "http://localhost:5000/"
+web_host = os.getenv("WEB_HOST")
+web_port = os.getenv("WEB_PORT")
 
 # DB 연결
 conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=db_password)
@@ -148,7 +149,7 @@ def process(self, songId, file_name):
                 raise e
         else:
             try:
-                requests.post(web_host+"api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
+                requests.post(f"http://{web_host}:{web_port}/api/songs/completion-notify", data={"songId": songId, "requestId": requestId})
                 request_result = "done"
             except:
                 request_result = "failed"
