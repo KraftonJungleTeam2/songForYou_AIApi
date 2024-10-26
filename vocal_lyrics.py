@@ -5,6 +5,10 @@ from difflib import SequenceMatcher
 import os
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
+import json
+
+model = whisper.load_model("small")
+print("model loaded: ", model)
 
 def align_words(transcribed_words, reference_words):
     # 단어들을 소문자로 변환하여 비교
@@ -80,40 +84,29 @@ def trim_start_silence(audio_path) -> float:
 
     return start_trim / 1000
 
-def transcribe_audio(audio_path, model_name="small") -> dict[str, list[float] | list[str]]:
-    # 앞 30초 무시하는 문제 있음. 트림으로 해결
-    start_trim = trim_start_silence(audio_path)
-    
-    # Whisper 모델 로드 ("medium" 모델 사용)
-    print("load whisper medium")
-    model = whisper.load_model(model_name)
+def transcribe_audio(audio_path, language='ko') -> dict:
+    # 앞 30초 무시하는 문제 -> 묵음 제외
+    nonsilent_flat = []
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    nonsilent = detect_nonsilent(audio, silence_thresh=-50, seek_step=100)
+    nonsilent_flat = [i/1000 for r in nonsilent for i in r] # 1차원으로, ms에서 s로 변경
 
     # 오디오 파일 전사
-    print("transcribe")
-    file_path = os.path.join(audio_path, "vocals_preprocessed_trimed.wav") if start_trim > 0 else os.path.join(audio_path, "vocals_preprocessed.wav")
-    result = model.transcribe(file_path, language='ko', 
-                              word_timestamps=True, 
-                              temperature=0, 
-                              no_speech_threshold=0.3
-                              )
-
-    # text = [seg['text'] for seg in result['segments']]
-    # time = [(seg['start'], seg['end']) for seg in result['segments']]
+    file_path = os.path.join(audio_path, "vocals_preprocessed.wav")
+    result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
 
     print("saving results")
-    # with open(os.path.join(audio_path, 'lyrics.txt'), 'w') as f:
-    #     for seg in result['segments']:
-    #         start, end, text = seg['start'], seg['end'], seg['text']
-    #         f.write(f"{start} {end} {text}\n")
-
-    start, end, text = [], [], []
-    for seg in result['segments']:
-        start.append(seg['start']+start_trim)
-        end.append(seg['end']+start_trim)
-        text.append(seg['text'])
+    # start, end, text, words = [], [], [], []
+    # for seg in result['segments']:
+    #     start.append(seg['start'])
+    #     end.append(seg['end'])
+    #     text.append(seg['text'])
+    #     words.append(seg['words'])
+    with open('lyrics.json', 'w') as f:
+        json.dump(result, f)
 
     # 전사된 텍스트 반환
-    return {'start': start, 'end': end, 'text': text}
+    return result
 
 
 if __name__ == '__main__':
