@@ -4,8 +4,8 @@ import boto3
 from celery import Celery, Task
 from vocal_separation import separate_audio
 from vocal_preprocess import vocal_preprocess
-from vocal_pitch import pitch_extract
 from vocal_lyrics import transcribe_audio
+from vocal_pitch import pitch_extract
 import psycopg2
 from dotenv import load_dotenv
 import json
@@ -23,6 +23,7 @@ db_name = os.getenv("DB_NAME")
 db_password = os.getenv("DB_PASSWORD")
 redis_host = os.getenv("REDIS_HOST")
 redis_port = os.getenv("REDIS_PORT")
+redis_password = os.getenv("REDIS_PASSWORD")
 bucket_name = os.getenv("AWS_BUCKET_NAME")
 web_host = os.getenv("WEB_HOST")
 web_port = os.getenv("WEB_PORT")
@@ -33,8 +34,8 @@ conn = psycopg2.connect(host=db_host, database=db_name, user=db_user, password=d
 # Celery 인스턴스 생성
 celery = Celery(
     'tasks',
-    broker=f'redis://{redis_host}:{redis_port}/1',
-    backend=f'redis://{redis_host}:{redis_port}/1'
+    broker=f'redis://{redis_password}@{redis_host}:{redis_port}/1',
+    backend=f'redis://{redis_password}@{redis_host}:{redis_port}/1'
 )
 
 # S3 클라이언트 생성
