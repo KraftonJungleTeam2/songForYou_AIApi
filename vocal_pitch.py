@@ -6,7 +6,6 @@ import pandas as pd
 import os
 from scipy.ndimage import gaussian_filter
 
-model = build_and_load_model('full')
 # https://github.com/marl/crepe
 def predict(audio, sr, model_capacity='full',
             viterbi=False, center=True, step_size=10, verbose=1):
@@ -94,6 +93,7 @@ def get_activation(audio, sr, model_capacity='full', center=True, step_size=10,
     activation : np.ndarray [shape=(T, 360)]
         The raw activation matrix
     """
+    model = build_and_load_model('full')
 
     if len(audio.shape) == 2:
         audio = audio.mean(1)  # make mono
