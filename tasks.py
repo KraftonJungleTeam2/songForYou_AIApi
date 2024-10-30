@@ -159,3 +159,5 @@ def process(self, songId, file_name):
                 print(e)
             shutil.rmtree(output_dir)
             return "process success with notify " + request_result
+        
+    return "query failed"
