@@ -97,3 +97,5 @@ celery multi start w1 -A <app_name> --logfile=/var/log/celery/%n%I.log --logleve
 - 자동 조정: `--autoscale=10,3`
 
 이 명령어들을 조합하여 Celery 작업자를 원하는 설정으로 실행할 수 있습니다.
+
+nohup celery -A tasks worker --loglevel=info --autoscale=4,1 --max-tasks-per-child=4 &
