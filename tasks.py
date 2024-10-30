@@ -66,7 +66,7 @@ def musicprocess(output_dir, file_path):
     # 보컬에서 가사 추출
     lyrics_path = os.path.join(output_dir, "lyrics.json")
     if not os.path.isfile(lyrics_path):
-        lyrics = transcribe_audio(output_dir)
+        lyrics = transcribe_audio(output_dir, language=None)
     else:
         with open(lyrics_path, 'r') as f:
             lyrics = json.load(f)
