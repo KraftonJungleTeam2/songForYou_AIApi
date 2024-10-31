@@ -186,13 +186,11 @@ def cut_tail(frequency):
             if up_streak > 0 and (up_streak > 2 or frequency_[i-up_streak-1]/frequency_[i-1] ** (1/up_streak) < 0.75):
                 frequency[i-up_streak:i] = np.nan
             if down_streak > 0 and (down_streak > 2 or frequency_[i-down_streak-1]/frequency_[i-1] ** (1/down_streak) > 1.33):
-                print(frequency_[i-down_streak-1], frequency_[i-1]  , (down_streak) )
                 frequency[i-down_streak-1:i] = np.nan
             up_streak = 0
             down_streak = 0
         elif v > last:
             if down_streak > 0 and (down_streak > 2 or frequency_[i-down_streak-1]/frequency_[i-1] ** (1/down_streak) > 1.33):
-                print(frequency_[i-down_streak-1], frequency_[i-1]  , (down_streak) )
                 frequency[i-down_streak-1:i] = np.nan
             
             up_streak += 1
