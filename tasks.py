@@ -96,20 +96,10 @@ def process(self, songId, file_name):
     except:
         return {"status": "error", "msg": "cannot download file", "traceback": traceback.format_exc()}
 
-    # # 노래 이미지 다운로드
-    # try:
-    #     img_path = os.path.join(output_dir, img_name)
-    #     if not os.path.isfile(img_path):
-    #         s3.download_file(bucket_name, img_name, img_path)
-    # except:
-    #     img_path = None
 
     lyrics, frequency, confidence, activation_path = musicprocess(output_dir, file_path)
 
-    # # 원본노래 파일 
-    # with open(file_path, 'rb') as f:
-    #     original = f.read()
-    # inst. 파일 
+    # 배경음악 파일
     no_vocals_path = wav_to_mp3(os.path.join(output_dir, "no_vocals.wav"))
     no_vocals_key = os.path.join(requestId, os.path.basename(no_vocals_path))
     s3.upload_file(no_vocals_path, bucket_name, no_vocals_key)
@@ -117,10 +107,6 @@ def process(self, songId, file_name):
     vocals_path = wav_to_mp3(os.path.join(output_dir, "vocals.wav"))
     vocals_key = os.path.join(requestId, os.path.basename(vocals_path))
     s3.upload_file(vocals_path, bucket_name, vocals_key)
-    # # 이미지 파일
-    # if img_path is not None:
-    #     with open(img_path, 'rb') as f:
-    #         image_file = f.read()
 
     # 음정 정보 파일
     pitch = frequency.tolist()

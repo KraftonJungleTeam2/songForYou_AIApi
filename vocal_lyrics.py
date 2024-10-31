@@ -96,13 +96,24 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     file_path = os.path.join(audio_path, "vocals_preprocessed.wav")
     result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
 
+    new_segments = []
+    for seg in result['segments']:
+        # 0.3초보다 짧은 세그멘트는 제외
+        if seg.get('end', 0)-seg.get('start', 0) < 0.3:
+            continue
+
+        cnt = 0
+        for word in seg['words']:
+            # 0.05초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
+            if word.get('end', 0)-word.get('start', 0) < 0.05:
+                cnt += 1
+                if cnt >= 2:
+                    break
+        else:
+            new_segments.append(seg)
+    result['segments'] = new_segments
+    
     print("saving results")
-    # start, end, text, words = [], [], [], []
-    # for seg in result['segments']:
-    #     start.append(seg['start'])
-    #     end.append(seg['end'])
-    #     text.append(seg['text'])
-    #     words.append(seg['words'])
     with open(os.path.join(audio_path, 'lyrics.json'), 'w') as f:
         json.dump(result, f)
 
