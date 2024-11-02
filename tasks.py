@@ -80,7 +80,7 @@ def musicprocess(output_dir, file_path):
 
     return lyrics, frequency, confidence, pitch_paths[2]
 
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5})
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5}, soft_time_limit= 600, time_limit=660)
 def process(self, songId, file_name):
     # 작업 ID로 디렉토리 생성
     requestId = self.request.id
