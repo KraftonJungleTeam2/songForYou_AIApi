@@ -51,7 +51,7 @@ def wav_to_mp3(wav_path):
     
     return mp3_path
 
-def musicprocess(output_dir, file_path):
+def musicprocess(output_dir, file_path, language):
     # 노래 보컬 분리
     novocals_path = os.path.join(output_dir, "no_vocals.wav")
     vocals_path = os.path.join(output_dir, "vocals.wav")
@@ -66,7 +66,7 @@ def musicprocess(output_dir, file_path):
     # 보컬에서 가사 추출
     lyrics_path = os.path.join(output_dir, "lyrics.json")
     if not os.path.isfile(lyrics_path):
-        lyrics = transcribe_audio(output_dir, language=None)
+        lyrics = transcribe_audio(output_dir, language=(language if language in ['ko', 'en'] else None))
     else:
         with open(lyrics_path, 'r') as f:
             lyrics = json.load(f)
@@ -81,7 +81,7 @@ def musicprocess(output_dir, file_path):
     return lyrics, frequency, confidence, pitch_paths[2]
 
 @celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5}, soft_time_limit= 600, time_limit=660)
-def process(self, songId, file_name):
+def process(self, songId, file_name, language, *args):
     # 작업 ID로 디렉토리 생성
     requestId = self.request.id
     output_dir = os.path.join(RESULT_FOLDER, requestId)
@@ -97,7 +97,7 @@ def process(self, songId, file_name):
         return {"status": "error", "msg": "cannot download file", "traceback": traceback.format_exc()}
 
 
-    lyrics, frequency, confidence, activation_path = musicprocess(output_dir, file_path)
+    lyrics, frequency, confidence, activation_path = musicprocess(output_dir, file_path, language)
 
     # 배경음악 파일
     no_vocals_path = wav_to_mp3(os.path.join(output_dir, "no_vocals.wav"))
