@@ -102,15 +102,31 @@ def transcribe_audio(audio_path, language='ko') -> dict:
         if seg.get('end', 0)-seg.get('start', 0) < 0.3:
             continue
 
+        # hallucination
+        if "자막 제작" in seg.get('text', ''):
+            continue
+        
+        # 0.05초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
         cnt = 0
         for word in seg['words']:
-            # 0.05초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
             if word.get('end', 0)-word.get('start', 0) < 0.05:
                 cnt += 1
                 if cnt >= 2:
                     break
         else:
-            new_segments.append(seg)
+            max_words_in_line = 10
+            if (length:=len(seg.get('words', []))) > max_words_in_line:
+                for i in range(0, length, max_words_in_line):
+                    temp = seg.copy()
+                    temp['words'] = temp['words'][i:i+max_words_in_line]
+                    temp['text'] = ' '.join(temp['text'].split()[i:i+max_words_in_line])
+                    temp['start'] = temp['words'][0]['start']
+                    temp['end'] = temp['words'][-1]['end']
+                    temp['seek'] = int(temp['start']*100)
+
+                    new_segments.append(temp)
+            else:
+                new_segments.append(seg)
     result['segments'] = new_segments
     
     print("saving results")
