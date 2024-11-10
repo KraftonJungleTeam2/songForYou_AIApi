@@ -7,7 +7,7 @@ from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 import json
 
-model = whisper.load_model("large")
+model = None
 
 def align_words(transcribed_words, reference_words):
     # 단어들을 소문자로 변환하여 비교
@@ -84,6 +84,9 @@ def trim_start_silence(audio_path) -> float:
     return start_trim / 1000
 
 def transcribe_audio(audio_path, language='ko') -> dict:
+    global model
+    if model is None:
+        model = whisper.load_model("large")
     # 앞 30초 무시하는 문제 -> 묵음 제외
     nonsilent_flat = []
     audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
