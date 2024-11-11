@@ -95,13 +95,13 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     # 오디오 파일 전사
     file_path = os.path.join(audio_path, "vocals.wav")
     if model is None:
-        model = whisper.load_model("large")
+        model = whisper.load_model("medium")
     print("model loaded")
     try:
         result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
     except:
         del model
-        model = whisper.load_model("large")
+        model = whisper.load_model("medium")
         return {"text": " ", 
                 "segments": [],
                 "language": "ko"}
@@ -113,7 +113,7 @@ def transcribe_audio(audio_path, language='ko') -> dict:
             continue
 
         # hallucination
-        if "자막 제작" in seg.get('text', ''):
+        if "자막" in seg.get('text', ''):
             continue
         
         # 0.1초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
