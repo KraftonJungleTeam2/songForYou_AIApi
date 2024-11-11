@@ -59,11 +59,11 @@ def musicprocess(output_dir, file_path, language):
         separate_audio(file_path, output_dir)
 
     # 보컬 전처리
-    print("preprocess start")
-    preprocessed_path = os.path.join(output_dir, "vocals_preprocessed.wav")
-    if not os.path.isfile(preprocessed_path):
-        vocal_preprocess(output_dir)
-    print("preprocess done")
+    # print("preprocess start")
+    # preprocessed_path = os.path.join(output_dir, "vocals_preprocessed.wav")
+    # if not os.path.isfile(preprocessed_path):
+    #     vocal_preprocess(output_dir)
+    # print("preprocess done")
 
     # 보컬에서 가사 추출
     print("transcribe start")

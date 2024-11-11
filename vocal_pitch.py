@@ -132,7 +132,7 @@ def pitch_extract(audio_path, lyrics: dict={}, step_size=50):
     Returns:
     None | tuple: 성공 시 np.ndarray로 (시간, 주파수, 주파수별 confidence, 전체 confidence 정보 반환)
     """
-    audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    audio, sr = librosa.load(os.path.join(audio_path, "vocals.wav"))
     # Crepe로 음정 추출
     _, frequency, _, activation = predict(audio, sr, viterbi=True, step_size=step_size)
     frequency, confidence = refine(frequency, activation, lyrics)
