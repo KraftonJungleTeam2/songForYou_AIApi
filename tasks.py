@@ -86,7 +86,7 @@ def musicprocess(output_dir, file_path, language):
 
     return lyrics, frequency, confidence, pitch_paths[2]
 
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5}, soft_time_limit= 600, time_limit=660)
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5}, soft_time_limit= 300, time_limit=600)
 def process(self, songId, file_name, language, *args):
     # 작업 ID로 디렉토리 생성
     requestId = self.request.id
@@ -128,28 +128,17 @@ def process(self, songId, file_name, language, *args):
         WHERE id = %s;
     """
 
-    for i in range(5):
-        try:
-            cur = conn.cursor()
-            # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-            cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), songId))
-        except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
-            if i < 4:
-                time.sleep(10)
-                conn.rollback()
-                continue
-            else:
-                raise e
-        else:
-            conn.commit()
-            cur.close()
-            try:
-                response = requests.post(f"https://{web_host}/api/songs/completion-notify", json={"songId": songId, "requestId": requestId})
-                request_result = "done (" + str(response.status_code) + ")"
-            except Exception as e:
-                request_result = "failed"
-                print(e)
-            shutil.rmtree(output_dir)
-            return "process success with notify " + request_result
-        
-    return "query failed"
+    print("query start")
+    cur = conn.cursor()
+    # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
+    cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), songId))
+    conn.commit()
+    cur.close()
+    try:
+        response = requests.post(f"https://{web_host}/api/songs/completion-notify", json={"songId": songId, "requestId": requestId})
+        request_result = "done (" + str(response.status_code) + ")"
+    except Exception as e:
+        request_result = "failed"
+        print(e)
+    shutil.rmtree(output_dir)
+    return "process success with notify " + request_result
