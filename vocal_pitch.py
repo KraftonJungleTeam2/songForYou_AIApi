@@ -5,6 +5,10 @@ import numpy as np
 import pandas as pd
 import os
 from scipy.ndimage import gaussian_filter
+import webrtcvad
+import wave
+import numpy as np
+from pydub import AudioSegment
 
 # https://github.com/marl/crepe
 def predict(audio, sr, model_capacity='full',
@@ -132,10 +136,10 @@ def pitch_extract(audio_path, lyrics: dict={}, step_size=50):
     Returns:
     None | tuple: 성공 시 np.ndarray로 (시간, 주파수, 주파수별 confidence, 전체 confidence 정보 반환)
     """
-    audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    audio, sr = librosa.load(os.path.join(audio_path, "vocals.wav"))
     # Crepe로 음정 추출
     _, frequency, _, activation = predict(audio, sr, viterbi=True, step_size=step_size)
-    frequency, confidence = refine(frequency, activation, lyrics)
+    frequency, confidence = refine(frequency, activation, audio_path)
     
     np.save(os.path.join(audio_path, "frequency.npy"), frequency)
     np.save(os.path.join(audio_path, "confidence.npy"), confidence)
@@ -143,7 +147,7 @@ def pitch_extract(audio_path, lyrics: dict={}, step_size=50):
 
     return frequency, confidence, activation
 
-def refine(frequency, activation, lyrics = None, threshold=0.25):
+def refine(frequency, activation, audio_path, threshold=0.25):
     # frequency 이상치 제거
     Q1 = np.nanpercentile(frequency, 25)
     Q3 = np.nanpercentile(frequency, 75)
@@ -155,7 +159,7 @@ def refine(frequency, activation, lyrics = None, threshold=0.25):
     frequency = np.where(frequency >= lower_bound, frequency, np.nan)
 
     # 가사로 마스킹 => 좋은 생각이 아닌 듯
-    # lyrics_masking(activation, lyrics)
+    no_vocal_masking(activation, audio_path)
     # 가우시안 필터
     new_confidence = distorted_gaussian_filter(activation, 7)
     # 스무딩 & new_frequency 생성
@@ -164,16 +168,53 @@ def refine(frequency, activation, lyrics = None, threshold=0.25):
     
     return new_frequency, new_confidence
 
-def lyrics_masking(data: np.ndarray, lyrics: dict):
+def no_vocal_masking(data: np.ndarray, audio_path):
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals.wav"))
     
-    segs = lyrics.get('segments', [])
-    last = 0
-    for seg in segs:
-        temp = int(seg.get('start', 0)*1000/50)
-        data[last:temp, :] = 0
-        last = int(seg.get('end', 0)*1000/50)
-    if last != 0:
-        data[last:, :] = 0
+    # Mono로 변환 (VAD는 Mono만 지원)
+    audio = audio.set_channels(1)
+    audio = audio.set_frame_rate(48000)  # VAD가 지원하는 샘플 레이트로 설정 (8000, 16000, 32000, 48000 중 하나)
+
+    # WAV 파일로 저장하여 WebRTC VAD 적용
+    audio.export(os.path.join(audio_path, "vocals_mono.wav"), format="wav")
+    
+    # WebRTC VAD 설정
+    vad = webrtcvad.Vad()
+    vad.set_mode(2)  # 모드 3: 가장 민감한 설정
+
+    # WAV 파일 읽기
+    with wave.open(os.path.join(audio_path, "vocals_mono.wav"), 'rb') as wf:
+        sample_rate = wf.getframerate()
+        frames = wf.readframes(wf.getnframes())
+        frame_length = int(sample_rate * 0.03)
+
+    # 음성 데이터를 NumPy 배열로 변환
+    samples = np.frombuffer(frames, dtype=np.int16)
+
+    # 음성 구간 탐지
+    segments = [0, 0]
+    for i in range(0, len(samples), frame_length):
+        frame = samples[i:i + frame_length]
+        if len(frame) < frame_length:
+            break
+
+        # VAD를 이용해 음성인지 여부 확인
+        is_speech = vad.is_speech(frame.tobytes(), sample_rate)
+        if not is_speech:
+            if (segments[-1] == i-frame_length):
+                segments[-1] = i
+            else:
+                segments.append(i)
+                segments.append(i)
+
+    for i in range(0, len(segments), 2):
+        s, e = segments[i:i+2]
+        s = int(s/48/50) # 48000hz 샘플 기준 인덱스를 20hz(개당 50ms) 기준 인덱스로 변환
+        e = int(e/48/50)
+        data[s:e] = 0
+
+    return data
+
 
 # 끝부분 치켜 올라가는 부분 제거
 def cut_tail(frequency):
@@ -283,30 +324,9 @@ if __name__ == '__main__':
     import numpy as np
     matplotlib.use('TkAgg')
 
-    # lyrics = {"start": [5.45, 24.77, 49.050000000000004, 76.41, 86.83, 97.93], "end": [23.45, 47.13, 76.41, 84.73, 97.92999999999999, 113.53], "text": [" yesterday all my trouble seems so far away now it looks as though they're here to stay oh i believe in yesterday suddenly", " i'm not half the man i used to be there's a shadow hanging over me oh yesterday came suddenly why she had to go i don't know she wouldn't say", " yesterday i said something wrong now i long for yesterday yesterday love was such an easy game to play i need a place to hide away oh i believe in yesterday", " why she had to go i don't know she wouldn't say", " i said something wrong now i long for yesterday yesterday", " yesterday love was such an easy game to play i need a place to hide away oh i believe in yesterday"]}
-    # result = pitch_extract(".", step_size=50)
-    # if result:
-    #     time, frequency, confidence, activation = result
-    # time = np.load("results/signal/time.npy")
-    # frequency = np.load("results/af5bfed8-ead1-4e48-906f-88132f36e114/frequency.npy")
-    # confidence = np.load("results/signal/confidence.npy")
-    # activation = np.load("results/signal/activation.npy")
-    # print(frequency)
-    # plt.figure(figsize=(12, 6))
-    # audio, sr = librosa.load(os.path.join(".", "vocals_preprocessed.wav"))
-    # time, frequency, confidence, activation = predict(audio, sr, viterbi=False, step_size=50)
-    # plt.plot(np.where(confidence > 0.5, frequency, np.nan))
-    # time, frequency, confidence, activation = predict(audio, sr, viterbi=True, step_size=50)
-    # plt.plot(np.where(confidence > 0.5, frequency, np.nan))
-    # plt.yscale('log')
-    # # plt.pcolor(activation.T)
-    # plt.show()
-    from crepe.core import to_viterbi_cents
-    activation = np.load("test/activation (1).npy")
-    frequency = 10 * 2 ** (to_viterbi_cents(activation) / 1200)
-    plt.plot(frequency)
-    frequency, confidence = refine(frequency, activation, lyrics)
-    print(frequency[1450:1475])
+    frequency, confidence, activation = pitch_extract(".")
     plt.plot(frequency)
     plt.yscale('log')
+    plt.show()
+    plt.pcolor(activation.T)
     plt.show()
