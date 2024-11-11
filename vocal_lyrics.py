@@ -67,7 +67,7 @@ def trim_start_silence(audio_path) -> float:
     Returns:
         float: 잘라낸 시간을 초단위로 반환함
     """    
-    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals.wav"))
 
     nonsilent_ranges = detect_nonsilent(audio, min_silence_len=500, silence_thresh=-40)
 
@@ -87,13 +87,13 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     global model
     # 앞 30초 무시하는 문제 -> 묵음 제외
     nonsilent_flat = []
-    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals.wav"))
     nonsilent = detect_nonsilent(audio, silence_thresh=-50, seek_step=100)
     nonsilent_flat = [i/1000 for r in nonsilent for i in r] # 1차원으로, ms에서 s로 변경
 
     
     # 오디오 파일 전사
-    file_path = os.path.join(audio_path, "vocals_preprocessed.wav")
+    file_path = os.path.join(audio_path, "vocals.wav")
     if model is None:
         model = whisper.load_model("large")
     print("model loaded")
