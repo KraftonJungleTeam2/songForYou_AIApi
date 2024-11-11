@@ -59,24 +59,30 @@ def musicprocess(output_dir, file_path, language):
         separate_audio(file_path, output_dir)
 
     # 보컬 전처리
+    print("preprocess start")
     preprocessed_path = os.path.join(output_dir, "vocals_preprocessed.wav")
     if not os.path.isfile(preprocessed_path):
         vocal_preprocess(output_dir)
+    print("preprocess done")
 
     # 보컬에서 가사 추출
+    print("transcribe start")
     lyrics_path = os.path.join(output_dir, "lyrics.json")
     if not os.path.isfile(lyrics_path):
         lyrics = transcribe_audio(output_dir, language=(language if language in ['ko', 'en'] else None))
     else:
         with open(lyrics_path, 'r') as f:
             lyrics = json.load(f)
+    print("transcribe done")
 
     # 보컬에서 음정 정보 추출
+    print("pitch extract start")
     pitch_paths = [os.path.join(output_dir, file) for file in ("frequency.npy", "confidence.npy", "activation.npy")]
     if not all(os.path.isfile(path) for path in pitch_paths):
         frequency, confidence, activation = pitch_extract(output_dir, lyrics)
     else:
         frequency, confidence, activation = (np.load(path) for path in pitch_paths)
+    print("pitch extract done")
 
     return lyrics, frequency, confidence, pitch_paths[2]
 

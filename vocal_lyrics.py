@@ -109,10 +109,10 @@ def transcribe_audio(audio_path, language='ko') -> dict:
         if "자막 제작" in seg.get('text', ''):
             continue
         
-        # 0.05초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
+        # 0.1초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
         cnt = 0
         for word in seg['words']:
-            if word.get('end', 0)-word.get('start', 0) < 0.05:
+            if word.get('end', 0)-word.get('start', 0) < 0.1:
                 cnt += 1
                 if cnt >= 2:
                     break

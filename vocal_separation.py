@@ -12,9 +12,11 @@ def separate_audio(file_path, output_dir):
         '--two-stems', 'vocals'  # 보컬만 추출 (필요에 따라 변경 가능)
     ]
     demucs_main(demucs_args)
-    
+
+    print("separate done")
     filename = os.path.splitext(os.path.basename(file_path))[0]
     shutil.move(os.path.join(output_dir, 'htdemucs', filename, 'vocals.wav'), output_dir)
     shutil.move(os.path.join(output_dir, 'htdemucs', filename, 'no_vocals.wav'), output_dir)
+    print("wav file moved")
 
     return output_dir
