@@ -100,6 +100,7 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     try:
         result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
     except:
+        del model
         model = whisper.load_model("large")
         return {"text": " ", 
                 "segments": [],
