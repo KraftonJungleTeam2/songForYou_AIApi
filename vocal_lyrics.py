@@ -6,6 +6,7 @@ import os
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 import json
+from lyric_scrapper import get_lyric
 
 model = None
 
@@ -83,7 +84,7 @@ def trim_start_silence(audio_path) -> float:
 
     return start_trim / 1000
 
-def transcribe_audio(audio_path, language='ko') -> dict:
+def transcribe_audio(audio_path, language='ko', metadata={}) -> dict:
     global model
     # 앞 30초 무시하는 문제 -> 묵음 제외
     nonsilent_flat = []
@@ -97,8 +98,12 @@ def transcribe_audio(audio_path, language='ko') -> dict:
     if model is None:
         model = whisper.load_model("medium")
     print("model loaded")
+    if "title" in metadata and "description" in metadata:
+        initial_prompt = get_lyric(metadata["title"], metadata["description"])
+    else:
+        initial_prompt = None
     try:
-        result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
+        result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=(0.0, 0.1), clip_timestamps=nonsilent_flat, initial_prompt=initial_prompt)
     except:
         del model
         model = whisper.load_model("medium")
