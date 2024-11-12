@@ -42,7 +42,6 @@ def get_lyric(title, artist):
             
             lyricid = soup.select_one("div.lyric")
             lyric = lyricid.get_text(separator="\n").strip()
-            lyric = "\n".join(lyric.split("\n")[:5])
 
             return lyric
         else:

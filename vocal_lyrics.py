@@ -98,10 +98,10 @@ def transcribe_audio(audio_path, language='ko', metadata={}) -> dict:
     if model is None:
         model = whisper.load_model("medium")
     print("model loaded")
-    if "title" in metadata and "description" in metadata:
-        initial_prompt = get_lyric(metadata["title"], metadata["description"])
-    else:
-        initial_prompt = None
+    initial_prompt = None
+    # if "title" in metadata and "description" in metadata:
+    #     initial_prompt = get_lyric(metadata["title"], metadata["description"])
+
     try:
         result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0.0, clip_timestamps=nonsilent_flat, initial_prompt=initial_prompt)
     except:
