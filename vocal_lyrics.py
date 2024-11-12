@@ -128,6 +128,8 @@ def transcribe_audio(audio_path, language='ko', metadata={}) -> dict:
                 cnt += 1
                 if cnt >= 2:
                     break
+            if len(word.get('word', '')) > 20:
+                break
         else:
             max_words_in_line = 10
             if (length:=len(seg.get('words', []))) > max_words_in_line:
