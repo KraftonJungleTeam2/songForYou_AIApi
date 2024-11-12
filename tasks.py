@@ -102,6 +102,10 @@ def process(self, songId, file_name, language, metadata, *args):
     except:
         return {"status": "error", "msg": "cannot download file", "traceback": traceback.format_exc()}
 
+    try:
+        metadata = json.loads(metadata)
+    except:
+        metadata = {}
 
     lyrics, frequency, confidence, activation_path = musicprocess(output_dir, file_path, language, metadata)
 
