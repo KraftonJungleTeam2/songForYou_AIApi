@@ -103,7 +103,7 @@ def transcribe_audio(audio_path, language='ko', metadata={}) -> dict:
     else:
         initial_prompt = None
     try:
-        result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=(0.0, 0.1), clip_timestamps=nonsilent_flat, initial_prompt=initial_prompt)
+        result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0.0, clip_timestamps=nonsilent_flat, initial_prompt=initial_prompt)
     except:
         del model
         model = whisper.load_model("medium")
