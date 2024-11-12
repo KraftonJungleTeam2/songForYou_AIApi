@@ -50,4 +50,4 @@ def get_lyric(title, artist):
         return None
 
 if __name__ == "__main__":
-    print(get_lyric("viva la vida", "coldplay"))
+    print(get_lyric("고백", "델리스파이스"))
