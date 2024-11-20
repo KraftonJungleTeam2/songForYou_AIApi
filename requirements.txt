@@ -13,3 +13,4 @@ boto3==1.35.48
 demucs==4.0.1
 psycopg2==2.9.10
 python-dotenv
+bs4
