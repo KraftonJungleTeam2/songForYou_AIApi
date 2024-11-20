@@ -76,4 +76,4 @@ def remove_noise(audio_path, sensitivity=2) -> bool:
     return True
 
 if __name__ == '__main__':
-    remove_noise("results/love wins all")
+    remove_noise(".")

@@ -6,7 +6,9 @@ import os
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 import json
+from lyric_scrapper import get_lyric
 
+model = None
 
 def align_words(transcribed_words, reference_words):
     # 단어들을 소문자로 변환하여 비교
@@ -66,7 +68,7 @@ def trim_start_silence(audio_path) -> float:
     Returns:
         float: 잘라낸 시간을 초단위로 반환함
     """    
-    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals.wav"))
 
     nonsilent_ranges = detect_nonsilent(audio, min_silence_len=500, silence_thresh=-40)
 
@@ -82,19 +84,35 @@ def trim_start_silence(audio_path) -> float:
 
     return start_trim / 1000
 
-def transcribe_audio(audio_path, language='ko') -> dict:
+def transcribe_audio(audio_path, language='ko', metadata={}) -> dict:
+    global model
     # 앞 30초 무시하는 문제 -> 묵음 제외
     nonsilent_flat = []
-    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    audio = AudioSegment.from_file(os.path.join(audio_path, "vocals.wav"))
     nonsilent = detect_nonsilent(audio, silence_thresh=-50, seek_step=100)
     nonsilent_flat = [i/1000 for r in nonsilent for i in r] # 1차원으로, ms에서 s로 변경
 
-    model = whisper.load_model("large")
-    print("model loaded: ", model)
     
     # 오디오 파일 전사
-    file_path = os.path.join(audio_path, "vocals_preprocessed.wav")
-    result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0, clip_timestamps=nonsilent_flat)
+    file_path = os.path.join(audio_path, "vocals.wav")
+    try:
+        if model is None:
+            raise NameError
+    except NameError:
+        model = whisper.load_model("medium")
+    print("model loaded")
+    initial_prompt = None
+    # if "title" in metadata and "description" in metadata:
+    #     initial_prompt = get_lyric(metadata["title"], metadata["description"])
+
+    try:
+        result = model.transcribe(file_path, language=language, word_timestamps=True, temperature=0.0, clip_timestamps=nonsilent_flat, initial_prompt=initial_prompt)
+    except:
+        del model
+        model = whisper.load_model("medium")
+        return {"text": " ", 
+                "segments": [],
+                "language": "ko"}
 
     new_segments = []
     for seg in result['segments']:
@@ -103,16 +121,18 @@ def transcribe_audio(audio_path, language='ko') -> dict:
             continue
 
         # hallucination
-        if "자막 제작" in seg.get('text', ''):
+        if "자막" in seg.get('text', ''):
             continue
         
-        # 0.05초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
+        # 0.1초보다 짧은 단어가 두 개 이상인 세그멘트도 제외
         cnt = 0
         for word in seg['words']:
-            if word.get('end', 0)-word.get('start', 0) < 0.05:
+            if word.get('end', 0)-word.get('start', 0) < 0.1:
                 cnt += 1
                 if cnt >= 2:
                     break
+            if len(word.get('word', '')) > 20:
+                break
         else:
             max_words_in_line = 10
             if (length:=len(seg.get('words', []))) > max_words_in_line:

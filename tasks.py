@@ -51,7 +51,7 @@ def wav_to_mp3(wav_path):
     
     return mp3_path
 
-def musicprocess(output_dir, file_path, language):
+def musicprocess(output_dir, file_path, language, metadata):
     # 노래 보컬 분리
     novocals_path = os.path.join(output_dir, "no_vocals.wav")
     vocals_path = os.path.join(output_dir, "vocals.wav")
@@ -59,29 +59,35 @@ def musicprocess(output_dir, file_path, language):
         separate_audio(file_path, output_dir)
 
     # 보컬 전처리
-    preprocessed_path = os.path.join(output_dir, "vocals_preprocessed.wav")
-    if not os.path.isfile(preprocessed_path):
-        vocal_preprocess(output_dir)
+    # print("preprocess start")
+    # preprocessed_path = os.path.join(output_dir, "vocals_preprocessed.wav")
+    # if not os.path.isfile(preprocessed_path):
+    #     vocal_preprocess(output_dir)
+    # print("preprocess done")
 
     # 보컬에서 가사 추출
+    print("transcribe start")
     lyrics_path = os.path.join(output_dir, "lyrics.json")
     if not os.path.isfile(lyrics_path):
-        lyrics = transcribe_audio(output_dir, language=(language if language in ['ko', 'en'] else None))
+        lyrics = transcribe_audio(output_dir, language=(language if language in ['ko', 'en'] else None), metadata=metadata)
     else:
         with open(lyrics_path, 'r') as f:
             lyrics = json.load(f)
+    print("transcribe done")
 
     # 보컬에서 음정 정보 추출
+    print("pitch extract start")
     pitch_paths = [os.path.join(output_dir, file) for file in ("frequency.npy", "confidence.npy", "activation.npy")]
     if not all(os.path.isfile(path) for path in pitch_paths):
         frequency, confidence, activation = pitch_extract(output_dir, lyrics)
     else:
         frequency, confidence, activation = (np.load(path) for path in pitch_paths)
+    print("pitch extract done")
 
     return lyrics, frequency, confidence, pitch_paths[2]
 
-@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5}, soft_time_limit= 600, time_limit=660)
-def process(self, songId, file_name, language, *args):
+@celery.task(bind=True, autoretry_for=(Exception,), retry_backoff=5, retry_kwargs={'max_retries': 5}, soft_time_limit= 300, time_limit=600)
+def process(self, songId, file_name, language, metadata, *args):
     # 작업 ID로 디렉토리 생성
     requestId = self.request.id
     output_dir = os.path.join(RESULT_FOLDER, requestId)
@@ -96,8 +102,12 @@ def process(self, songId, file_name, language, *args):
     except:
         return {"status": "error", "msg": "cannot download file", "traceback": traceback.format_exc()}
 
+    try:
+        metadata = json.loads(metadata)
+    except:
+        metadata = {}
 
-    lyrics, frequency, confidence, activation_path = musicprocess(output_dir, file_path, language)
+    lyrics, frequency, confidence, activation_path = musicprocess(output_dir, file_path, language, metadata)
 
     # 배경음악 파일
     no_vocals_path = wav_to_mp3(os.path.join(output_dir, "no_vocals.wav"))
@@ -122,28 +132,17 @@ def process(self, songId, file_name, language, *args):
         WHERE id = %s;
     """
 
-    for i in range(5):
-        try:
-            cur = conn.cursor()
-            # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
-            cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), songId))
-        except (psycopg2.OperationalError, psycopg2.DatabaseError) as e:
-            if i < 4:
-                time.sleep(10)
-                conn.rollback()
-                continue
-            else:
-                raise e
-        else:
-            conn.commit()
-            cur.close()
-            try:
-                response = requests.post(f"https://{web_host}/api/songs/completion-notify", json={"songId": songId, "requestId": requestId})
-                request_result = "done (" + str(response.status_code) + ")"
-            except Exception as e:
-                request_result = "failed"
-                print(e)
-            shutil.rmtree(output_dir)
-            return "process success with notify " + request_result
-        
-    return "query failed"
+    print("query start")
+    cur = conn.cursor()
+    # 데이터 삽입 (BLOB 데이터는 psycopg2.Binary로 감싸서 처리)
+    cur.execute(query, (no_vocals_key, vocals_key, pitch, confidence, activation_key, json.dumps(lyrics), songId))
+    conn.commit()
+    cur.close()
+    try:
+        response = requests.post(f"https://{web_host}/api/songs/completion-notify", json={"songId": songId, "requestId": requestId})
+        request_result = "done (" + str(response.status_code) + ")"
+    except Exception as e:
+        request_result = "failed"
+        print(e)
+    shutil.rmtree(output_dir)
+    return "process success with notify " + request_result
