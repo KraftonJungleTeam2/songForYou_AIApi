@@ -324,9 +324,16 @@ if __name__ == '__main__':
     import numpy as np
     matplotlib.use('TkAgg')
 
-    frequency, confidence, activation = pitch_extract(".")
-    plt.plot(frequency)
+    audio_path = "."
+    audio, sr = librosa.load(os.path.join(audio_path, "vocals_preprocessed.wav"))
+    # Crepe로 음정 추출
+    _, frequency, confidence, activation = predict(audio, sr, viterbi=True, step_size=25)
+
+    plt.subplot(2, 1, 1)
+    plt.plot(np.where(confidence>0.5, frequency, np.nan), linewidth=2)
     plt.yscale('log')
-    plt.show()
-    plt.pcolor(activation.T)
+    frequency, confidence = refine(frequency, activation, audio_path)
+    plt.subplot(2, 1, 2)
+    plt.plot(frequency, linewidth=2)
+    plt.yscale('log')
     plt.show()
