@@ -95,7 +95,10 @@ def transcribe_audio(audio_path, language='ko', metadata={}) -> dict:
     
     # 오디오 파일 전사
     file_path = os.path.join(audio_path, "vocals.wav")
-    if model is None:
+    try:
+        if model is None:
+            raise NameError
+    except NameError:
         model = whisper.load_model("medium")
     print("model loaded")
     initial_prompt = None
